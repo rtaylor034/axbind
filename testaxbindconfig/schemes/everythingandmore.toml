@@ -1,0 +1,20 @@
+name='everythingandmore'
+
+[bindings]
+'@INCLUDE'= [
+    'keybinds',
+    'colors',
+]
+and='more'
+
+[remaps.extra]
+'@INCLUDE'= [
+    'keybinds.name',
+]
+more="extra"
+#functions are commands that remap ALL values based on a binary's stdout
+#'^' represents the value pre-remap
+[functions.myscript]
+shell='sh'
+stdin='^'
+command='/path/to/my/binary_or_script ^'

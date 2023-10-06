@@ -1,0 +1,2 @@
+have a "rename" option/command utility for renaming keys:
+.ex: I have a binding key called "close" and i want to rename it "quit", but all of my axbind source files have '@@close' in them, this utility would take care of that.

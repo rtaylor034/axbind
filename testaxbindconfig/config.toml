@@ -1,0 +1,10 @@
+
+scheme_dir="schemes"
+
+[metaoptions]
+internal_escapechar='\' #applies to text values within axbind files
+
+#defaults
+[options]
+keyfmt='@^@'
+escapechar='\' #will leave next char as-is always with no parsing (consumes this char)

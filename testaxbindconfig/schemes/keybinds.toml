@@ -1,0 +1,17 @@
+name='keybinds'
+
+[bindings]
+next='u'
+prev='a'
+right='e'
+left='o'
+close=';'
+modkey='ctrl'
+copy='c'
+
+[superbindings]
+paste='@modkey@+@copy@'
+
+[remaps.name]
+';'="semicolon"
+

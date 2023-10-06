@@ -1,0 +1,10 @@
+axbind_scheme='colors'
+
+[bindings]
+info="blue"
+app="purple"
+
+[remaps.hex]
+'blue'="#0000FF"
+'purple'="#00FFFF"
+
