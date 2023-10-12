@@ -11,8 +11,7 @@ pub struct TagFile<'t> {
     pub options: Options<'t>,
 }
 impl TagFile<'_> {
-    pub fn generate_from<'t, 'c>(table: &'t TableHandle<'t, 'c>) -> Result<TagFile<'t>, ConfigError<'c>>
-    where 't: 'c {
+    pub fn generate_from<'t>(table: &'t TableHandle<'t>) -> Result<TagFile<'t>, ConfigError> {
         use gfunc::tomlutil::TableResultOptional;
         let files: Vec<&Path> = get_array_strings(table, "files")?.iter().map(|file| Path::new(file)).collect();
         let scheme_table = TableHandle {

@@ -2,12 +2,12 @@ use crate::{Path, PathBuf, Mapping};
 use gfunc::tomlutil::*;
 
 #[derive(Debug)]
-pub enum ConfigError<'c> {
-    TableGet(TableGetError<'c>),
+pub enum ConfigError {
+    TableGet(TableGetError),
     Misc(String),
 }
-impl<'c> From<TableGetError<'c>> for ConfigError<'c> {
-    fn from(value: TableGetError<'c>) -> Self {
+impl From<TableGetError> for ConfigError {
+    fn from(value: TableGetError) -> Self {
         Self::TableGet(value)
     }
 }
@@ -15,17 +15,17 @@ pub struct CoreConfig {
     pub scheme_dir: PathBuf,
 }
 //schemes should be lazy loaded
-pub struct Scheme<'t, 'c> {
+pub struct Scheme<'t> {
     pub name: &'t String,
     pub bindings: Mapping<&'t String>,
     pub remaps: Mapping<Mapping<&'t String>>,
     pub functions: Mapping<Box<dyn Fn(String) -> String>>,
-    table_handle: TableHandle<'t, 'c>,
+    table_handle: TableHandle<'t>,
     table: toml::Table,
     verified: bool,
 }
-impl Scheme<'_, '_> {
-    fn construct_unverified<'t, 'c>(table: toml::Table, context: Context<'c>) -> Scheme<'t, 'c> {
+impl Scheme<'_> {
+    fn construct_unverified<'t>(table: toml::Table, context: Context) -> Scheme<'t> {
         todo!();
     }
     fn verify(&mut self) -> Result<(), ConfigError> {
@@ -39,12 +39,12 @@ pub struct Options<'t> {
     pub keyfmt: Option<&'t String>,
     pub escapechar: Option<char>,
 }
-pub struct SchemeRegistry<'t, 'c> {
+pub struct SchemeRegistry<'t> {
     //Must not grow after load_dir is called
-    schemes: Vec<Scheme<'t, 'c>>,
-    lookup: Mapping<*mut Scheme<'t, 'c>>,
+    schemes: Vec<Scheme<'t>>,
+    lookup: Mapping<*mut Scheme<'t>>,
 }
-impl<'t, 'c> SchemeRegistry<'t, 'c> {
+impl<'t> SchemeRegistry<'t> {
     pub fn load_dir<E>(dir: &Path) -> Result<SchemeRegistry, std::io::Error> {
         use gfunc::fnav;
         use std::fs;
@@ -102,7 +102,7 @@ impl<'t, 'c> SchemeRegistry<'t, 'c> {
         Ok(SchemeRegistry { schemes, lookup })
     }
     ///self.schemes MUST not grow.
-    pub fn get<'s>(&'s self, name: &str) -> Result<Option<&'s Scheme>, ConfigError<'s>> {
+    pub fn get<'s>(&'s self, name: &str) -> Result<Option<&'s Scheme>, ConfigError> {
         unsafe {
             match self.lookup.get(name) {
                 Some(ptr) => match (**ptr).verify() {

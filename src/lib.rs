@@ -23,7 +23,7 @@ fn do_axbind(text: &str, bindings: BTreeMap<String, String>, options: &configs::
 
     todo!();
 }
-pub fn get_array_strings<'t, 'c>(tag_entry: &TableHandle<'t, 'c>, key: &str) -> Result<Vec<&'t String>, gfunc::tomlutil::TableGetError<'c>> {
+pub fn get_array_strings<'t>(tag_entry: &TableHandle<'t>, key: &str) -> Result<Vec<&'t String>, gfunc::tomlutil::TableGetError> {
     use gfunc::tomlutil::*;
     use toml::Value;
     let mut o = Vec::<&String>::new();
