@@ -18,27 +18,11 @@ impl TagFile<'_> {
             table: table.get_table("schemes")?.table,
             context: table.context.with("schemes".to_string()),
         };
-        let option_table = TableHandle {
+        let options = Options::from_table(&TableHandle {
             table: table.get_table("options")?.table,
             context: table.context.with("options".to_string()),
-        };
-        let options = Options {
-            keyfmt: option_table.get_string("keyfmt").optional()?,
-            escapechar: {
-                let raw = option_table.get_string("escapechar").optional()?;
-                match raw {
-                    None => None,
-                    Some(s) => {
-                        if s.len() != 1 {
-                            return Err(ConfigError::Misc(format!(
-                                "value for key 'escapechar' in {} must be exactly 1 character",
-                                option_table.context)));
-                        }
-                        Some(s.chars().next().unwrap())
-                    }
-                }
-            }
-        };
+        })?;
+        let remaps = get_array_strings(&scheme_table, "remaps").optional()?.unwrap_or(vec![]);
         todo!();
     }
 }

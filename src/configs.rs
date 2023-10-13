@@ -39,6 +39,28 @@ pub struct Options<'t> {
     pub keyfmt: Option<&'t String>,
     pub escapechar: Option<char>,
 }
+impl Options<'_> {
+    pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
+        let o = Options {
+            keyfmt: table.get_string("keyfmt").optional()?,
+            escapechar: {
+                let raw = table.get_string("escapechar").optional()?;
+                match raw {
+                    None => None,
+                    Some(s) => {
+                        if s.len() != 1 {
+                            return Err(ConfigError::Misc(format!(
+                                "value for key 'escapechar' in {} must be exactly 1 character",
+                                table.context)));
+                        }
+                        Some(s.chars().next().unwrap())
+                    }
+                }
+            }
+        };
+        Ok(o)
+    }
+}
 pub struct SchemeRegistry<'t> {
     //Must not grow after load_dir is called
     schemes: Vec<Scheme<'t>>,
