@@ -11,10 +11,6 @@ impl From<TableGetError> for ConfigError {
         Self::TableGet(value)
     }
 }
-pub trait TableAbstraction
-where Self: Sized {
-    fn from_table(table: &TableHandle) -> Result<Self, ConfigError>;
-}
 pub struct CoreConfig {
     pub scheme_dir: PathBuf,
 }
@@ -50,7 +46,7 @@ impl<'st> Scheme<'st> {
         Self::populate_bindmap(&mut self.remaps, handle.get_table("remaps")?)?;
         todo!();
     }
-    fn parse_bindfunction<'t>(handle: TableHandle<'t>) -> Result<BindFunction, ConfigError> {
+    fn parse_bindfunction<'t>(handle: &TableHandle<'t>, metaopts: &MetaOptions) -> Result<BindFunction, ConfigError> {
         todo!();
     }
     fn populate_bindmap<'t>(map: &mut RefMapping<'t, &'t String>, handle: TableHandle<'t>) -> Result<(), ConfigError> {
@@ -67,6 +63,30 @@ impl<'st> Scheme<'st> {
     }
 
 }
+fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> { 
+    if raw.len() != 1 {
+        return Err(ConfigError::Misc(format!(
+            "value for key 'escapechar' in {} must be exactly 1 character",
+            context)));
+    }
+    Ok(raw.chars().next().unwrap())
+}
+pub struct MetaOptions<'t> {
+    pub internal_escapechar: Option<char>,
+    //temporary until non-primitive data type field is added.
+    _p: core::marker::PhantomData<&'t toml::Table>,
+}
+impl MetaOptions<'_> {
+    pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
+        Ok(MetaOptions {
+            internal_escapechar: match table.get_string("internal_escapechar").optional()? {
+                None => None,
+                Some(v) => Some(validate_char(v, &table.context)?),
+            },
+            _p: std::marker::PhantomData,
+        })
+    }
+}
 pub struct Options<'t> {
     pub keyfmt: Option<&'t String>,
     pub escapechar: Option<char>,
@@ -79,14 +99,7 @@ impl Options<'_> {
                 let raw = table.get_string("escapechar").optional()?;
                 match raw {
                     None => None,
-                    Some(s) => {
-                        if s.len() != 1 {
-                            return Err(ConfigError::Misc(format!(
-                                "value for key 'escapechar' in {} must be exactly 1 character",
-                                table.context)));
-                        }
-                        Some(s.chars().next().unwrap())
-                    }
+                    Some(s) => Some(validate_char(s, &table.context)?),
                 }
             }
         };
