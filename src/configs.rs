@@ -11,6 +11,10 @@ impl From<TableGetError> for ConfigError {
         Self::TableGet(value)
     }
 }
+pub trait TableAbstraction
+where Self: Sized {
+    fn from_table(table: &TableHandle) -> Result<Self, ConfigError>;
+}
 pub struct CoreConfig {
     pub scheme_dir: PathBuf,
 }
