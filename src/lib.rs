@@ -9,8 +9,9 @@ pub mod tagfile;
 
 pub type Mapping<T> = HashMap<String, T>;
 pub type RefMapping<'t, T> = HashMap<&'t String, T>;
+pub type BindFunction = Box<dyn Fn(String) -> String>;
 
-pub fn remap<F>(original: &mut Mapping<String>, remap_function: F)
+pub fn remap<_U, F>(original: &mut HashMap<_U, String>, remap_function: F)
 where
     F: Fn(&mut String),
 {

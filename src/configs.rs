@@ -1,4 +1,4 @@
-use crate::{Path, PathBuf, Mapping, RefMapping};
+use crate::{Path, PathBuf, Mapping, RefMapping, BindFunction};
 use gfunc::tomlutil::*;
 
 #[derive(Debug)]
@@ -18,7 +18,7 @@ pub struct CoreConfig {
 pub struct Scheme<'t> {
     pub bindings: RefMapping<'t, &'t String>,
     pub remaps: RefMapping<'t, &'t String>,
-    pub functions: RefMapping<'t, Box<dyn Fn(String) -> String>>,
+    pub functions: RefMapping<'t, BindFunction>,
     root_context: Context,
     table: toml::Table,
     verified: bool,
@@ -44,6 +44,9 @@ impl<'st> Scheme<'st> {
         };
         Self::populate_bindmap(&mut self.bindings, handle.get_table("bindings")?)?;
         Self::populate_bindmap(&mut self.remaps, handle.get_table("remaps")?)?;
+        todo!();
+    }
+    fn parse_bindfunction<'t>(handle: TableHandle<'t>) -> Result<BindFunction, ConfigError> {
         todo!();
     }
     fn populate_bindmap<'t>(map: &mut RefMapping<'t, &'t String>, handle: TableHandle<'t>) -> Result<(), ConfigError> {
