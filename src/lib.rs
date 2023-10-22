@@ -8,6 +8,7 @@ pub mod configs;
 pub mod tagfile;
 
 pub type Mapping<T> = HashMap<String, T>;
+pub type RefMapping<'t, T> = HashMap<&'t String, T>;
 
 pub fn remap<F>(original: &mut Mapping<String>, remap_function: F)
 where
@@ -25,11 +26,10 @@ fn do_axbind(text: &str, bindings: BTreeMap<String, String>, options: &configs::
 }
 pub fn get_array_strings<'t>(tag_entry: &TableHandle<'t>, key: &str) -> gfunc::tomlutil::TableResult<Vec<&'t String>> {
     use gfunc::tomlutil::*;
-    use toml::Value;
     let mut o = Vec::<&String>::new();
         for val in tag_entry.get_array(key)? {
             match val {
-                Value::String(str) => o.push(str),
+                toml::Value::String(str) => o.push(str),
                 _ => {
                     return Err(TableGetError::new(tag_entry.context.with(key.to_string()), key, TableGetErr::WrongType("ARRAY (of STRINGs}")));
                 }

@@ -1,4 +1,4 @@
-use crate::{Path, PathBuf, Mapping};
+use crate::{Path, PathBuf, Mapping, RefMapping};
 use gfunc::tomlutil::*;
 
 #[derive(Debug)]
@@ -16,24 +16,49 @@ pub struct CoreConfig {
 }
 //schemes should be lazy loaded
 pub struct Scheme<'t> {
-    pub name: &'t String,
-    pub bindings: Mapping<&'t String>,
-    pub remaps: Mapping<Mapping<&'t String>>,
-    pub functions: Mapping<Box<dyn Fn(String) -> String>>,
-    table_handle: TableHandle<'t>,
+    pub bindings: RefMapping<'t, &'t String>,
+    pub remaps: RefMapping<'t, &'t String>,
+    pub functions: RefMapping<'t, Box<dyn Fn(String) -> String>>,
+    root_context: Context,
     table: toml::Table,
     verified: bool,
 }
-impl Scheme<'_> {
-    fn construct_unverified<'t>(table: toml::Table, context: Context) -> Scheme<'t> {
-        todo!();
+impl<'st> Scheme<'st> {
+    fn construct_unverified<'t>(table: toml::Table, root_context: String) -> Scheme<'t> {
+        Scheme {
+            table,
+            root_context: Context::from(root_context),
+            verified: false,
+            bindings: RefMapping::new(),
+            remaps: RefMapping::new(),
+            functions: RefMapping::new(),
+        }
     }
-    fn verify(&mut self) -> Result<(), ConfigError> {
+    fn verify(&'st mut self) -> Result<(), ConfigError> {
         if self.verified {
             return Ok(());
         }
+        let handle = TableHandle {
+            table: &self.table,
+            context: self.root_context.clone(),
+        };
+        Self::populate_bindmap(&mut self.bindings, handle.get_table("bindings")?)?;
+        Self::populate_bindmap(&mut self.remaps, handle.get_table("remaps")?)?;
         todo!();
     }
+    fn populate_bindmap<'t>(map: &mut RefMapping<'t, &'t String>, handle: TableHandle<'t>) -> Result<(), ConfigError> {
+        for (k, v) in handle.table {
+            match v {
+                toml::Value::String(s) => map.insert(k, s),
+                _ => return Err(ConfigError::TableGet(TableGetError::new(
+                        handle.context,
+                        k,
+                        TableGetErr::WrongType("STRING")))),
+            };
+        }
+        Ok(())
+    }
+
 }
 pub struct Options<'t> {
     pub keyfmt: Option<&'t String>,
@@ -118,7 +143,7 @@ impl<'t> SchemeRegistry<'t> {
             };
             let keyname = name.to_string();
             let context_string: String = dir.join(&keyname).to_string_lossy().into();
-            schemes.push(Scheme::construct_unverified(table, context_string.into()));
+            schemes.push(Scheme::construct_unverified(table, context_string));
             lookup.insert(keyname, schemes.last_mut().unwrap() as *mut Scheme);
         }
         Ok(SchemeRegistry { schemes, lookup })
