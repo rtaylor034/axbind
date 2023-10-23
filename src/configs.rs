@@ -1,4 +1,4 @@
-use crate::{Path, PathBuf, Mapping, RefMapping, BindFunction};
+use crate::{Path, PathBuf, Mapping, RefMapping, escaped_manip};
 use gfunc::tomlutil::*;
 
 #[derive(Debug)]
@@ -18,7 +18,7 @@ pub struct CoreConfig {
 pub struct Scheme<'t> {
     pub bindings: RefMapping<'t, &'t String>,
     pub remaps: RefMapping<'t, &'t String>,
-    pub functions: RefMapping<'t, BindFunction>,
+    pub functions: RefMapping<'t, BindFunction<'t>>,
     root_context: Context,
     table: toml::Table,
     verified: bool,
@@ -46,8 +46,11 @@ impl<'st> Scheme<'st> {
         Self::populate_bindmap(&mut self.remaps, handle.get_table("remaps")?)?;
         todo!();
     }
-    fn parse_bindfunction<'t>(handle: &TableHandle<'t>, metaopts: &MetaOptions) -> Result<BindFunction, ConfigError> {
-        todo!();
+    fn parse_bindfunction<'t>(table: &TableHandle<'t>, metaopts: &MetaOptions) -> Result<BindFunction<'t>, ConfigError> {
+        Ok(BindFunction {
+            shell: table.get_string("shell")?,
+            raw_command: table.get_string("command")?,
+        })
     }
     fn populate_bindmap<'t>(map: &mut RefMapping<'t, &'t String>, handle: TableHandle<'t>) -> Result<(), ConfigError> {
         for (k, v) in handle.table {
@@ -71,8 +74,18 @@ fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> {
     }
     Ok(raw.chars().next().unwrap())
 }
+pub struct BindFunction<'t> {
+    shell: &'t str,
+    raw_command:&'t str,
+}
+impl BindFunction<'_> {
+    pub fn run(&self, key: &str, opts: &Options) -> String {
+        todo!();
+    }
+}
 pub struct MetaOptions<'t> {
     pub internal_escapechar: Option<char>,
+    pub wildcard_char: Option<char>,
     //temporary until non-primitive data type field is added.
     _p: core::marker::PhantomData<&'t toml::Table>,
 }
@@ -83,20 +96,24 @@ impl MetaOptions<'_> {
                 None => None,
                 Some(v) => Some(validate_char(v, &table.context)?),
             },
+            wildcard_char: match table.get_string("wildcard_char").optional()? {
+                None => None,
+                Some(v) => Some(validate_char(v, &table.context)?),
+            },
             _p: std::marker::PhantomData,
         })
     }
 }
 pub struct Options<'t> {
-    pub keyfmt: Option<&'t String>,
-    pub escapechar: Option<char>,
+    pub key_format: Option<&'t String>,
+    pub escape_char: Option<char>,
 }
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         let o = Options {
-            keyfmt: table.get_string("keyfmt").optional()?,
-            escapechar: {
-                let raw = table.get_string("escapechar").optional()?;
+            key_format: table.get_string("key_format").optional()?,
+            escape_char: {
+                let raw = table.get_string("escape_char").optional()?;
                 match raw {
                     None => None,
                     Some(s) => Some(validate_char(s, &table.context)?),

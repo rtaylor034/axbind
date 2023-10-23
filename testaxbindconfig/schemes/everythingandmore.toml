@@ -16,5 +16,4 @@ more="extra"
 #'^' represents the value pre-remap
 [functions.myscript]
 shell='sh'
-stdin='^'
-command='/path/to/my/binary_or_script ^'
+command='echo ^ | /path/to/my/binary_or_script ^'
