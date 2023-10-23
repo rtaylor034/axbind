@@ -39,3 +39,12 @@ pub fn get_array_strings<'t>(tag_entry: &TableHandle<'t>, key: &str) -> gfunc::t
     Ok(o)
 }
 
+pub fn escaped_manip<'s, F>(text: &'s str, escape: char, manip: F) -> String
+where F: Fn(&'s str) -> String {
+    let mut o = String::with_capacity(text.len());
+    for (esc, string) in text.split(escape).map(|chunk| chunk.split_at(1)) {
+        o.push_str(esc);
+        o.push_str(manip(string).as_str());
+    }
+    o
+}
