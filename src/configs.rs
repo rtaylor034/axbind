@@ -1,10 +1,11 @@
-use crate::{Path, PathBuf, Mapping, RefMapping, escaped_manip};
+use crate::{Path, PathBuf, Mapping, RefMapping, escaped_manip, get_array_strings};
 use gfunc::tomlutil::*;
 
 #[derive(Debug)]
 pub enum ConfigError {
     TableGet(TableGetError),
     Misc(String),
+    TableRefExpect(Context, TableGetError),
 }
 impl From<TableGetError> for ConfigError {
     fn from(value: TableGetError) -> Self {
@@ -17,9 +18,9 @@ pub struct CoreConfig {
 //schemes should be lazy loaded
 pub struct Scheme<'t> {
     pub bindings: RefMapping<'t, &'t String>,
-    pub remaps: RefMapping<'t, &'t String>,
-    pub functions: RefMapping<'t, BindFunction<'t>>,
-    root_context: Context,
+    pub remaps: RefMapping<'t, RefMapping<'t, &'t String>>,
+    //pub functions: RefMapping<'t, BindFunction<'t>>,
+    root_context: String,
     table: toml::Table,
     verified: bool,
 }
@@ -27,44 +28,13 @@ impl<'st> Scheme<'st> {
     fn construct_unverified<'t>(table: toml::Table, root_context: String) -> Scheme<'t> {
         Scheme {
             table,
-            root_context: Context::from(root_context),
+            root_context,
             verified: false,
             bindings: RefMapping::new(),
             remaps: RefMapping::new(),
-            functions: RefMapping::new(),
+//            functions: RefMapping::new(),
         }
     }
-    fn verify(&'st mut self) -> Result<(), ConfigError> {
-        if self.verified {
-            return Ok(());
-        }
-        let handle = TableHandle {
-            table: &self.table,
-            context: self.root_context.clone(),
-        };
-        Self::populate_bindmap(&mut self.bindings, handle.get_table("bindings")?)?;
-        Self::populate_bindmap(&mut self.remaps, handle.get_table("remaps")?)?;
-        todo!();
-    }
-    fn parse_bindfunction<'t>(table: &TableHandle<'t>, metaopts: &MetaOptions) -> Result<BindFunction<'t>, ConfigError> {
-        Ok(BindFunction {
-            shell: table.get_string("shell")?,
-            raw_command: table.get_string("command")?,
-        })
-    }
-    fn populate_bindmap<'t>(map: &mut RefMapping<'t, &'t String>, handle: TableHandle<'t>) -> Result<(), ConfigError> {
-        for (k, v) in handle.table {
-            match v {
-                toml::Value::String(s) => map.insert(k, s),
-                _ => return Err(ConfigError::TableGet(TableGetError::new(
-                        handle.context,
-                        k,
-                        TableGetErr::WrongType("STRING")))),
-            };
-        }
-        Ok(())
-    }
-
 }
 fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> { 
     if raw.len() != 1 {
@@ -73,15 +43,6 @@ fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> {
             context)));
     }
     Ok(raw.chars().next().unwrap())
-}
-pub struct BindFunction<'t> {
-    shell: &'t str,
-    raw_command:&'t str,
-}
-impl BindFunction<'_> {
-    pub fn run(&self, key: &str, opts: &Options) -> String {
-        todo!();
-    }
 }
 pub struct MetaOptions<'t> {
     pub internal_escapechar: Option<char>,
@@ -128,7 +89,7 @@ pub struct SchemeRegistry<'t> {
     schemes: Vec<Scheme<'t>>,
     lookup: Mapping<*mut Scheme<'t>>,
 }
-impl<'t> SchemeRegistry<'t> {
+impl<'st> SchemeRegistry<'st> {
     pub fn load_dir<E>(dir: &Path) -> Result<SchemeRegistry, std::io::Error> {
         use gfunc::fnav;
         use std::fs;
@@ -186,10 +147,10 @@ impl<'t> SchemeRegistry<'t> {
         Ok(SchemeRegistry { schemes, lookup })
     }
     ///self.schemes MUST not grow.
-    pub fn get<'s>(&'s self, name: &str) -> Result<Option<&'s Scheme>, ConfigError> {
+    pub fn get(&self, name: &str) -> Result<Option<&'st Scheme>, ConfigError> {
         unsafe {
             match self.lookup.get(name) {
-                Some(ptr) => match (**ptr).verify() {
+                Some(ptr) => match self.verify_scheme(&mut **ptr) {
                     Ok(_) => Ok(Some(&**ptr)),
                     Err(e) => Err(e),
                 },
@@ -197,4 +158,64 @@ impl<'t> SchemeRegistry<'t> {
             }
         }
     }
+    fn verify_scheme<'s>(&'s self, scheme: &'st mut Scheme<'st>) -> Result<(), ConfigError>
+    where 's: 'st {
+        if scheme.verified {
+            return Ok(());
+        }
+        let handle = TableHandle {
+            table: &scheme.table,
+            context: scheme.root_context.clone().into(),
+        };
+        self.populate_bindmap(&mut scheme.bindings, handle.get_table("bindings")?)?;
+        for (name, remaptable) in handle.get_table("remaps")?.collect_tables()? {
+            let mut remap = RefMapping::<&String>::new();
+            self.populate_bindmap(&mut remap, remaptable)?;
+            scheme.remaps.insert(name, remap);
+        }
+
+        todo!();
+    }
+    fn populate_bindmap<'s>(&'s self, map: &mut RefMapping<'st, &'st String>, handle: TableHandle<'st>) -> Result<(), ConfigError>
+    where 's: 'st {
+        for (k, v) in handle.table {
+            match k.as_str() {
+                "@INCLUDE" => {
+                    //weirdchamp as hell but not gunna rewrite get_array_strings
+                     for inclusion in get_array_strings(&handle, "@INCLUDE")? {
+                         let (scheme, path) = inclusion.split_once('.').unwrap_or((inclusion.as_str(), ""));
+                         let scheme_table = match self.get(scheme)? {
+                            Some(s) => TableHandle {
+                                table: &s.table,
+                                context: s.root_context.clone().into(),
+                            },
+                            None => return Err(ConfigError::Misc(
+                                    format!("Unrecognized scheme name '{}'. ({})",
+                                            scheme,
+                                            handle.context.with("@INCLUDE".to_owned())))),
+                         };
+                         let mut nbindmap = scheme_table.get_table(&handle.context.branch).map_err(|e| {
+                             ConfigError::TableRefExpect(handle.context.with("@INCLUDE".to_owned()), e)
+                         })?;
+                         if !path.is_empty() {
+                             nbindmap = nbindmap.get_table(path).map_err(|e| {
+                                ConfigError::TableRefExpect(handle.context.with("@INCLUDE".to_owned()), e)
+                             })?;
+                         }
+                         self.populate_bindmap(map, nbindmap)?;
+                     }
+                }
+                _ =>
+                match v {
+                    toml::Value::String(s) => { map.insert(k, s); },
+                    _ => return Err(ConfigError::TableGet(TableGetError::new(
+                            handle.context,
+                            k,
+                            TableGetErr::WrongType("STRING")))),
+                },
+            };
+        }
+        Ok(())
+    }
+    
 }
