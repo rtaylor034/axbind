@@ -16,6 +16,7 @@ impl From<TableGetError> for ConfigError {
 pub struct CoreConfig {
     pub scheme_dir: PathBuf,
 }
+#[derive(Debug)]
 pub struct BindFunction<'t> {
     shell: &'t String,
     rcommand: &'t String,
@@ -34,7 +35,7 @@ impl BindFunction<'_> {
             .expect(format!("Invalid UTF-8 returned from function command '{}'", command).as_str()).to_owned())
     }
 }
-//schemes should be lazy loaded
+#[derive(Debug)]
 pub struct Scheme<'t> {
     pub bindings: RefMapping<'t, &'t String>,
     pub remaps: RefMapping<'t, RefMapping<'t, &'t String>>,
@@ -105,6 +106,7 @@ impl Options<'_> {
         Ok(o)
     }
 }
+#[derive(Debug)]
 pub struct SchemeRegistry<'t> {
     //rust warns that 'schemes' is unread becuase it is only read through raw pointers via 'lookup'
     #[allow(unused)]

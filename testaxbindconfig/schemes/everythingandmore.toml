@@ -1,4 +1,4 @@
-name='everythingandmore'
+axbind_scheme='everythingandmore'
 
 [bindings]
 '@INCLUDE'= [

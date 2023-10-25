@@ -1,4 +1,4 @@
-name='keybinds'
+axbind_scheme='keybinds'
 
 [bindings]
 next='u'
