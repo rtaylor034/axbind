@@ -1,4 +1,5 @@
 use crate::{Path, PathBuf, Mapping, RefMapping, escaped_manip, get_array_strings};
+use optwrite::OptWrite;
 use gfunc::tomlutil::*;
 
 #[derive(Debug)]
@@ -15,11 +16,29 @@ impl From<TableGetError> for ConfigError {
 pub struct CoreConfig {
     pub scheme_dir: PathBuf,
 }
+pub struct BindFunction<'t> {
+    shell: &'t String,
+    rcommand: &'t String,
+}
+impl BindFunction<'_> {
+    pub fn apply(&self, key: &str, metaopts: &MetaOptions) -> std::io::Result<String> {
+        use std::process::Command;
+        let command = escaped_manip(self.rcommand, metaopts.internal_escapechar.unwrap(), |text| {
+            text.replace(metaopts.wildcard_char.unwrap(), key)
+        });
+        Ok(std::str::from_utf8(Command::new(self.shell)
+            .arg("-c")
+            .arg(format!("\"{}\"", command))
+            .output()?
+            .stdout.as_slice())
+            .expect(format!("Invalid UTF-8 returned from function command '{}'", command).as_str()).to_owned())
+    }
+}
 //schemes should be lazy loaded
 pub struct Scheme<'t> {
     pub bindings: RefMapping<'t, &'t String>,
     pub remaps: RefMapping<'t, RefMapping<'t, &'t String>>,
-    //pub functions: RefMapping<'t, BindFunction<'t>>,
+    pub functions: RefMapping<'t, BindFunction<'t>>,
     root_context: String,
     table: toml::Table,
     verified: bool,
@@ -32,7 +51,7 @@ impl<'st> Scheme<'st> {
             verified: false,
             bindings: RefMapping::new(),
             remaps: RefMapping::new(),
-//            functions: RefMapping::new(),
+            functions: RefMapping::new(),
         }
     }
 }
@@ -44,6 +63,7 @@ fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> {
     }
     Ok(raw.chars().next().unwrap())
 }
+#[derive(OptWrite)]
 pub struct MetaOptions<'t> {
     pub internal_escapechar: Option<char>,
     pub wildcard_char: Option<char>,
@@ -65,14 +85,15 @@ impl MetaOptions<'_> {
         })
     }
 }
+#[derive(OptWrite)]
 pub struct Options<'t> {
-    pub key_format: Option<&'t String>,
+    pub key_format: Option<&'t str>,
     pub escape_char: Option<char>,
 }
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         let o = Options {
-            key_format: table.get_string("key_format").optional()?,
+            key_format: table.get_string("key_format").optional()?.map(|s| s.as_str()),
             escape_char: {
                 let raw = table.get_string("escape_char").optional()?;
                 match raw {
@@ -147,7 +168,8 @@ impl<'st> SchemeRegistry<'st> {
         Ok(SchemeRegistry { schemes, lookup })
     }
     ///self.schemes MUST not grow.
-    pub fn get(&self, name: &str) -> Result<Option<&'st Scheme>, ConfigError> {
+    pub fn get<'s>(&'s self, name: &str) -> Result<Option<&'st Scheme>, ConfigError>
+    where 's: 'st {
         unsafe {
             match self.lookup.get(name) {
                 Some(ptr) => match self.verify_scheme(&mut **ptr) {
