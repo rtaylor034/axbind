@@ -1,7 +1,6 @@
-use crate::{Path, PathBuf, Mapping, RefMapping, escaped_manip, get_array_strings};
-use optwrite::OptWrite;
+use crate::{escaped_manip, get_array_strings, Mapping, Path, PathBuf, RefMapping};
 use gfunc::tomlutil::*;
-
+use optwrite::OptWrite;
 #[derive(Debug)]
 pub enum ConfigError {
     TableGet(TableGetError),
@@ -16,12 +15,11 @@ impl From<TableGetError> for ConfigError {
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use ConfigError::*;
-       match self {
+        match self {
             TableGet(e) => e.fmt(f),
             TableRefExpect(c, e) => {
-                writeln!(f, "'{}'", e).and_then(|_|
-                writeln!(f, " > expected from '{}'", c))
-            },
+                writeln!(f, "'{}'", e).and_then(|_| writeln!(f, " > expected from '{}'", c))
+            }
             Misc(msg) => writeln!(f, "{}", msg),
         }
     }
@@ -37,15 +35,21 @@ pub struct BindFunction<'t> {
 impl BindFunction<'_> {
     pub fn apply(&self, key: &str, metaopts: &MetaOptions) -> std::io::Result<String> {
         use std::process::Command;
-        let command = escaped_manip(self.rcommand, metaopts.internal_escapechar.unwrap(), |text| {
-            text.replace(metaopts.wildcard_char.unwrap(), key)
-        });
-        Ok(std::str::from_utf8(Command::new(self.shell)
-            .arg("-c")
-            .arg(&command)
-            .output()?
-            .stdout.as_slice())
-            .expect(format!("Invalid UTF-8 returned from function command '{}'", command).as_str()).to_owned())
+        let command = escaped_manip(
+            self.rcommand,
+            metaopts.internal_escapechar.unwrap(),
+            |text| text.replace(metaopts.wildcard_char.unwrap(), key),
+        );
+        Ok(std::str::from_utf8(
+            Command::new(self.shell)
+                .arg("-c")
+                .arg(&command)
+                .output()?
+                .stdout
+                .as_slice(),
+        )
+        .expect(format!("Invalid UTF-8 returned from function command '{}'", command).as_str())
+        .to_owned())
     }
 }
 #[derive(Debug)]
@@ -69,11 +73,14 @@ impl<'st> Scheme<'st> {
         }
     }
 }
-fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> { 
+//perhaps make validate <t> a feature of tomlutil
+//also make a get_char
+fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> {
     if raw.len() != 1 {
         return Err(ConfigError::Misc(format!(
-            "value for key 'escapechar' in {} must be exactly 1 character",
-            context)));
+            "value for '{}' must be exactly 1 character",
+            context
+        )));
     }
     Ok(raw.chars().next().unwrap())
 }
@@ -85,6 +92,7 @@ pub struct MetaOptions<'t> {
     _p: core::marker::PhantomData<&'t toml::Table>,
 }
 impl MetaOptions<'_> {
+    //perhaps make from_table a derivable trait
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
             internal_escapechar: match table.get_string("internal_escapechar").optional()? {
@@ -98,6 +106,20 @@ impl MetaOptions<'_> {
             _p: std::marker::PhantomData,
         })
     }
+    //cheugy solution (from_table_forced should also be derivable)
+    pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
+        Ok(MetaOptions {
+            internal_escapechar: Some(validate_char(
+                table.get_string("internal_escapechar")?,
+                &table.context.with("internal_escapechar".to_owned()),
+            )?),
+            wildcard_char: Some(validate_char(
+                table.get_string("wildcard_char")?,
+                &table.context.with("wildcard_char".to_owned()),
+            )?),
+            _p: std::marker::PhantomData,
+        })
+    }
 }
 #[derive(OptWrite)]
 pub struct Options<'t> {
@@ -107,14 +129,17 @@ pub struct Options<'t> {
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         let o = Options {
-            key_format: table.get_string("key_format").optional()?.map(|s| s.as_str()),
+            key_format: table
+                .get_string("key_format")
+                .optional()?
+                .map(|s| s.as_str()),
             escape_char: {
                 let raw = table.get_string("escape_char").optional()?;
                 match raw {
                     None => None,
                     Some(s) => Some(validate_char(s, &table.context)?),
                 }
-            }
+            },
         };
         Ok(o)
     }
@@ -186,7 +211,9 @@ impl<'st> SchemeRegistry<'st> {
     }
     ///self.schemes MUST not grow.
     pub fn get<'s>(&'s self, name: &str) -> Result<Option<&'st Scheme>, ConfigError>
-    where 's: 'st {
+    where
+        's: 'st,
+    {
         unsafe {
             match self.lookup.get(name) {
                 Some(ptr) => match self.verify_scheme(&mut **ptr) {
@@ -198,7 +225,9 @@ impl<'st> SchemeRegistry<'st> {
         }
     }
     fn verify_scheme<'s>(&'s self, scheme: &'st mut Scheme<'st>) -> Result<(), ConfigError>
-    where 's: 'st {
+    where
+        's: 'st,
+    {
         if scheme.verified {
             return Ok(());
         }
@@ -213,53 +242,79 @@ impl<'st> SchemeRegistry<'st> {
             scheme.remaps.insert(name, remap);
         }
         for (name, functiontable) in handle.get_table("functions")?.collect_tables()? {
-            scheme.functions.insert(name, BindFunction {
-                shell: functiontable.get_string("shell")?,
-                rcommand: functiontable.get_string("command")?,
-            });
+            scheme.functions.insert(
+                name,
+                BindFunction {
+                    shell: functiontable.get_string("shell")?,
+                    rcommand: functiontable.get_string("command")?,
+                },
+            );
         }
         Ok(())
     }
-    fn populate_bindmap<'s>(&'s self, map: &mut RefMapping<'st, &'st String>, handle: TableHandle<'st>) -> Result<(), ConfigError>
-    where 's: 'st {
+    fn populate_bindmap<'s>(
+        &'s self,
+        map: &mut RefMapping<'st, &'st String>,
+        handle: TableHandle<'st>,
+    ) -> Result<(), ConfigError>
+    where
+        's: 'st,
+    {
         for (k, v) in handle.table {
             match k.as_str() {
                 "@INCLUDE" => {
                     //weirdchamp as hell but not gunna rewrite get_array_strings
-                     for inclusion in get_array_strings(&handle, "@INCLUDE")? {
-                         let (scheme, path) = inclusion.split_once('.').unwrap_or((inclusion.as_str(), ""));
-                         let scheme_table = match self.get(scheme)? {
+                    for inclusion in get_array_strings(&handle, "@INCLUDE")? {
+                        let (scheme, path) = inclusion
+                            .split_once('.')
+                            .unwrap_or((inclusion.as_str(), ""));
+                        let scheme_table = match self.get(scheme)? {
                             Some(s) => TableHandle {
                                 table: &s.table,
                                 context: s.root_context.clone().into(),
                             },
-                            None => return Err(ConfigError::Misc(
-                                    format!("Unrecognized scheme name '{}'. ({})",
-                                            scheme,
-                                            handle.context.with("@INCLUDE".to_owned())))),
-                         };
-                         let mut nbindmap = scheme_table.get_table(&handle.context.branch).map_err(|e| {
-                             ConfigError::TableRefExpect(handle.context.with("@INCLUDE".to_owned()), e)
-                         })?;
-                         if !path.is_empty() {
-                             nbindmap = nbindmap.get_table(path).map_err(|e| {
-                                ConfigError::TableRefExpect(handle.context.with("@INCLUDE".to_owned()), e)
-                             })?;
-                         }
-                         self.populate_bindmap(map, nbindmap)?;
-                     }
+                            None => {
+                                return Err(ConfigError::Misc(format!(
+                                    "Unrecognized scheme name '{}'. ({})",
+                                    scheme,
+                                    handle.context.with("@INCLUDE".to_owned())
+                                )))
+                            }
+                        };
+                        let mut nbindmap =
+                            scheme_table
+                                .get_table(&handle.context.branch)
+                                .map_err(|e| {
+                                    ConfigError::TableRefExpect(
+                                        handle.context.with("@INCLUDE".to_owned()),
+                                        e,
+                                    )
+                                })?;
+                        if !path.is_empty() {
+                            nbindmap = nbindmap.get_table(path).map_err(|e| {
+                                ConfigError::TableRefExpect(
+                                    handle.context.with("@INCLUDE".to_owned()),
+                                    e,
+                                )
+                            })?;
+                        }
+                        self.populate_bindmap(map, nbindmap)?;
+                    }
                 }
-                _ =>
-                match v {
-                    toml::Value::String(s) => { map.insert(k, s); },
-                    _ => return Err(ConfigError::TableGet(TableGetError::new(
+                _ => match v {
+                    toml::Value::String(s) => {
+                        map.insert(k, s);
+                    }
+                    _ => {
+                        return Err(ConfigError::TableGet(TableGetError::new(
                             handle.context,
                             k,
-                            TableGetErr::WrongType("STRING")))),
+                            TableGetErr::WrongType("STRING"),
+                        )))
+                    }
                 },
             };
         }
         Ok(())
     }
-    
 }

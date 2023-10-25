@@ -13,5 +13,5 @@ optwrite = { path = "/home/gfunction/Projects/Rust/Lib/optwrite" }
 
 [dependencies.gfunc]
 path = "/home/gfunction/Projects/Rust/Lib/gfunc"
-features = [ 'toml', 'runinfo' ]
+features = [ 'tomlutil', 'run' ]
 
