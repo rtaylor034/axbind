@@ -13,6 +13,19 @@ impl From<TableGetError> for ConfigError {
         Self::TableGet(value)
     }
 }
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ConfigError::*;
+       match self {
+            TableGet(e) => e.fmt(f),
+            TableRefExpect(c, e) => {
+                writeln!(f, "'{}'", e).and_then(|_|
+                writeln!(f, " > expected from '{}'", c))
+            },
+            Misc(msg) => writeln!(f, "{}", msg),
+        }
+    }
+}
 pub struct CoreConfig {
     pub scheme_dir: PathBuf,
 }

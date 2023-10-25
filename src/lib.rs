@@ -10,14 +10,6 @@ pub mod tagfile;
 pub type Mapping<T> = HashMap<String, T>;
 pub type RefMapping<'t, T> = HashMap<&'t String, T>;
 
-pub fn remap<_U, F>(original: &mut HashMap<_U, String>, remap_function: F)
-where
-    F: Fn(&mut String),
-{
-    for (_, v) in original.iter_mut() {
-        remap_function(v);
-    }
-}
 fn do_axbind(text: &str, bindings: BTreeMap<String, String>, options: &configs::Options) -> String {
     let searcher = AhoCorasick::new(bindings.keys()).unwrap();
     for (ti, tc) in text.char_indices() {}
