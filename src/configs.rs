@@ -28,7 +28,7 @@ impl BindFunction<'_> {
         });
         Ok(std::str::from_utf8(Command::new(self.shell)
             .arg("-c")
-            .arg(format!("\"{}\"", command))
+            .arg(&command)
             .output()?
             .stdout.as_slice())
             .expect(format!("Invalid UTF-8 returned from function command '{}'", command).as_str()).to_owned())
@@ -106,7 +106,9 @@ impl Options<'_> {
     }
 }
 pub struct SchemeRegistry<'t> {
-    //Must not grow after load_dir is called
+    //rust warns that 'schemes' is unread becuase it is only read through raw pointers via 'lookup'
+    #[allow(unused)]
+    ///Must not grow after load_dir is called
     schemes: Vec<Scheme<'t>>,
     lookup: Mapping<*mut Scheme<'t>>,
 }
@@ -195,8 +197,13 @@ impl<'st> SchemeRegistry<'st> {
             self.populate_bindmap(&mut remap, remaptable)?;
             scheme.remaps.insert(name, remap);
         }
-
-        todo!();
+        for (name, functiontable) in handle.get_table("functions")?.collect_tables()? {
+            scheme.functions.insert(name, BindFunction {
+                shell: functiontable.get_string("shell")?,
+                rcommand: functiontable.get_string("command")?,
+            });
+        }
+        Ok(())
     }
     fn populate_bindmap<'s>(&'s self, map: &mut RefMapping<'st, &'st String>, handle: TableHandle<'st>) -> Result<(), ConfigError>
     where 's: 'st {
