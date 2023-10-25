@@ -60,7 +60,7 @@ fn program() -> Result<(), MainError> {
 }
 fn main() {
     if let Err(e) = program() {
-        eprint!("{}", e);
+        eprint!("[FATAL!] :: {}", e);
         exit(1);
     }
 }
