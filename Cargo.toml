@@ -12,6 +12,6 @@ toml = "0.8.1"
 optwrite = { path = "/home/gfunction/Projects/Rust/Lib/optwrite" }
 
 [dependencies.gfunc]
-path = "/home/gfunction/Projects/Rust/Lib/gfunc"
+path = "/home/gfunction/Projects/Rust/Lib/gfunc/v0.1"
 features = [ 'tomlutil', 'run' ]
 
