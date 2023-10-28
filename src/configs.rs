@@ -245,13 +245,13 @@ impl<'st> SchemeRegistry<'st> {
         for (name, remaptable) in extract_value!(Table, handle.get("remaps"))? {
             let mut remap = RefMapping::<&String>::new();
             self.populate_bindmap(&mut remap, extract_value!(Table, remaptable)?)?;
-            scheme.remaps.insert(&remaptable.context.branch, remap);
+            scheme.remaps.insert(name, remap);
         }
         for (name, functiontable) in extract_value!(Table, handle.get("functions"))? {
             scheme.functions.insert(
                 name,
                 BindFunction {
-                    shell: extract_value!(String, extract_value!(Table, functiontable)?.get("shell"))?,
+                    shell: extract_value!(String, extract_value!(Table, functiontable.clone())?.get("shell"))?,
                     rcommand: extract_value!(String, extract_value!(Table, functiontable)?.get("command"))?,
                 },
             );
@@ -266,7 +266,7 @@ impl<'st> SchemeRegistry<'st> {
     where
         's: 'st,
     {
-        for (k, v) in handle {
+        for (k, v) in handle.clone() {
             match k.as_str() {
                 "@INCLUDE" => {
                     for inclusion in extract_array_strings(v.into())? {
@@ -287,7 +287,7 @@ impl<'st> SchemeRegistry<'st> {
                             }
                         };
                         let mut nbindmap =
-                            extract_value!(Table, scheme_table.get(&handle.context.branch))
+                            extract_value!(Table, scheme_table.get(k))
                                 .map_err(|e| {
                                     ConfigError::TableRefExpect(
                                         handle.context.with("@INCLUDE".to_owned()),
