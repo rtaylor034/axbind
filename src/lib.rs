@@ -17,7 +17,7 @@ fn do_axbind(text: &str, bindings: BTreeMap<String, String>, options: &configs::
     todo!();
 }
 pub fn extract_array_strings<'t>(
-    handle: &PotentialValueHandle<'t>,
+    handle: PotentialValueHandle<'t>,
 ) -> TableResult<Vec<&'t String>> {
     extract_value!(Array, handle)?
         .into_iter()

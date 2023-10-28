@@ -1,5 +1,12 @@
-use crate::{escaped_manip, get_array_strings, Mapping, Path, PathBuf, RefMapping};
-use gfunc::tomlutil::*;
+use crate::{
+    escaped_manip,
+    Mapping,
+    Path,
+    PathBuf,
+    RefMapping,
+    extract_array_strings,
+};
+use toml_context::*;
 use optwrite::OptWrite;
 #[derive(Debug)]
 pub enum ConfigError {
@@ -95,11 +102,11 @@ impl MetaOptions<'_> {
     //perhaps make from_table a derivable trait
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
-            internal_escapechar: match table.get_string("internal_escapechar").optional()? {
+            internal_escapechar: match extract_value!(String, table.get("internal_escapechar")).optional()? {
                 None => None,
                 Some(v) => Some(validate_char(v, &table.context)?),
             },
-            wildcard_char: match table.get_string("wildcard_char").optional()? {
+            wildcard_char: match extract_value!(String, table.get("wildcard_char")).optional()? {
                 None => None,
                 Some(v) => Some(validate_char(v, &table.context)?),
             },
@@ -110,11 +117,11 @@ impl MetaOptions<'_> {
     pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
             internal_escapechar: Some(validate_char(
-                table.get_string("internal_escapechar")?,
+                extract_value!(String, table.get("internal_escapechar"))?,
                 &table.context.with("internal_escapechar".to_owned()),
             )?),
             wildcard_char: Some(validate_char(
-                table.get_string("wildcard_char")?,
+                extract_value!(String, table.get("wildcard_char"))?,
                 &table.context.with("wildcard_char".to_owned()),
             )?),
             _p: std::marker::PhantomData,
@@ -129,12 +136,11 @@ pub struct Options<'t> {
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         let o = Options {
-            key_format: table
-                .get_string("key_format")
+            key_format: extract_value!(String, table.get("key_format"))
                 .optional()?
                 .map(|s| s.as_str()),
             escape_char: {
-                let raw = table.get_string("escape_char").optional()?;
+                let raw = extract_value!(String, table.get("escape_char")).optional()?;
                 match raw {
                     None => None,
                     Some(s) => Some(validate_char(s, &table.context)?),
@@ -235,18 +241,18 @@ impl<'st> SchemeRegistry<'st> {
             table: &scheme.table,
             context: scheme.root_context.clone().into(),
         };
-        self.populate_bindmap(&mut scheme.bindings, handle.get_table("bindings")?)?;
-        for (name, remaptable) in handle.get_table("remaps")?.collect_tables()? {
+        self.populate_bindmap(&mut scheme.bindings, extract_value!(Table, handle.get("bindings"))?)?;
+        for (name, remaptable) in extract_value!(Table, handle.get("remaps"))? {
             let mut remap = RefMapping::<&String>::new();
-            self.populate_bindmap(&mut remap, remaptable)?;
-            scheme.remaps.insert(name, remap);
+            self.populate_bindmap(&mut remap, extract_value!(Table, remaptable)?)?;
+            scheme.remaps.insert(&remaptable.context.branch, remap);
         }
-        for (name, functiontable) in handle.get_table("functions")?.collect_tables()? {
+        for (name, functiontable) in extract_value!(Table, handle.get("functions"))? {
             scheme.functions.insert(
                 name,
                 BindFunction {
-                    shell: functiontable.get_string("shell")?,
-                    rcommand: functiontable.get_string("command")?,
+                    shell: extract_value!(String, extract_value!(Table, functiontable)?.get("shell"))?,
+                    rcommand: extract_value!(String, extract_value!(Table, functiontable)?.get("command"))?,
                 },
             );
         }
@@ -263,8 +269,8 @@ impl<'st> SchemeRegistry<'st> {
         for (k, v) in handle.table {
             match k.as_str() {
                 "@INCLUDE" => {
-                    //weirdchamp as hell but not gunna rewrite get_array_strings
-                    for inclusion in get_array_strings(&handle, "@INCLUDE")? {
+                    //weirdchamp as hell but not gunna rewrite extract_array_strings
+                    for inclusion in extract_array_strings(handle.get("@INCLUDE"))? {
                         let (scheme, path) = inclusion
                             .split_once('.')
                             .unwrap_or((inclusion.as_str(), ""));
@@ -282,8 +288,7 @@ impl<'st> SchemeRegistry<'st> {
                             }
                         };
                         let mut nbindmap =
-                            scheme_table
-                                .get_table(&handle.context.branch)
+                            extract_value!(Table, scheme_table.get(&handle.context.branch))
                                 .map_err(|e| {
                                     ConfigError::TableRefExpect(
                                         handle.context.with("@INCLUDE".to_owned()),
@@ -291,7 +296,7 @@ impl<'st> SchemeRegistry<'st> {
                                     )
                                 })?;
                         if !path.is_empty() {
-                            nbindmap = nbindmap.get_table(path).map_err(|e| {
+                            nbindmap = extract_value!(Table, nbindmap.get(path)).map_err(|e| {
                                 ConfigError::TableRefExpect(
                                     handle.context.with("@INCLUDE".to_owned()),
                                     e,
@@ -306,11 +311,10 @@ impl<'st> SchemeRegistry<'st> {
                         map.insert(k, s);
                     }
                     _ => {
-                        return Err(ConfigError::TableGet(TableGetError::new(
-                            handle.context,
-                            k,
-                            TableGetErr::WrongType("STRING"),
-                        )))
+                        return Err(ConfigError::TableGet(TableGetError {
+                            context: handle.context,
+                            error: TableGetErr::WrongType("STRING"),
+                        }))
                     }
                 },
             };
