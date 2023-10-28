@@ -30,7 +30,7 @@ pub fn read_runinfo(runinfo: RunInfo) -> ProgramOptions {
     };
     let config_paths = match valued_opts.get("config") {
         Some(cfgpath) => vec![PathBuf::from(cfgpath)],
-        None => vec![
+        None => [
             "$XDG_CONFIG_HOME/axbind/config.toml",
             "$HOME/.config/axbind/config.toml",
             "/etc/axbind/config.toml",
@@ -39,12 +39,11 @@ pub fn read_runinfo(runinfo: RunInfo) -> ProgramOptions {
         .filter_map(|path| simple_envpath(path).ok())
         .collect(),
     };
-    let o = ProgramOptions {
+    ProgramOptions {
         root_dir,
         tagdir_path,
         config_paths,
-    };
-    o
+    }
 }
 pub fn priority_parse<I, T>(paths: I) -> Option<(toml::Table, PathBuf)>
 where

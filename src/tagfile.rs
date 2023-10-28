@@ -16,7 +16,7 @@ impl TagFile<'_> {
         use crate::{TableResultOptional, extract_array_strings, extract_value };
         let files: Vec<&Path> = extract_array_strings(table.get("files"))?
             .into_iter()
-            .map(|file| Path::new(file))
+            .map(Path::new)
             .collect();
         let scheme_table = extract_value!(Table, table.get("schemes"))?;
         let options = Options::from_table(&extract_value!(Table, table.get("options"))?)?;

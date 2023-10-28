@@ -55,7 +55,7 @@ impl BindFunction<'_> {
                 .stdout
                 .as_slice(),
         )
-        .expect(format!("Invalid UTF-8 returned from function command '{}'", command).as_str())
+        .unwrap_or_else(|_| panic!("Invalid UTF-8 returned from function command '{}'", command))
         .to_owned())
     }
 }
@@ -226,7 +226,7 @@ impl<'st> SchemeRegistry<'st> {
                     Ok(_) => Ok(Some(&**ptr)),
                     Err(e) => Err(e),
                 },
-                None => return Ok(None),
+                None => Ok(None),
             }
         }
     }
