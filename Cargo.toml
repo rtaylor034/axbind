@@ -10,8 +10,9 @@ serde = {version = "1.0", features = ["derive"]}
 aho-corasick = {version = "1.1,1", features = ["std"]}
 toml = "0.8.1"
 optwrite = { path = "/home/gfunction/Projects/Rust/Lib/optwrite" }
+toml-context = { path = "/home/gfunction/Projects/Rust/Lib/toml-context/v0.1" }
 
 [dependencies.gfunc]
 path = "/home/gfunction/Projects/Rust/Lib/gfunc/v0.1"
-features = [ 'tomlutil', 'run' ]
+features = [ 'run' ]
 
