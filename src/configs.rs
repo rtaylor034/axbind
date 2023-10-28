@@ -202,7 +202,7 @@ impl<'st> SchemeRegistry<'st> {
                 }
                 _ => {
                     eprintln!(
-                        "[Warn] 'axbind_scheme' key in {:?} is not a STRING type, file skipped.",
+                        "[Warn] 'axbind_scheme' key in {:?} is not a String type, file skipped.",
                         file
                     );
                     continue;
