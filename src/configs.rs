@@ -266,11 +266,10 @@ impl<'st> SchemeRegistry<'st> {
     where
         's: 'st,
     {
-        for (k, v) in handle.table {
+        for (k, v) in handle {
             match k.as_str() {
                 "@INCLUDE" => {
-                    //weirdchamp as hell but not gunna rewrite extract_array_strings
-                    for inclusion in extract_array_strings(handle.get("@INCLUDE"))? {
+                    for inclusion in extract_array_strings(v.into())? {
                         let (scheme, path) = inclusion
                             .split_once('.')
                             .unwrap_or((inclusion.as_str(), ""));
@@ -305,19 +304,9 @@ impl<'st> SchemeRegistry<'st> {
                         }
                         self.populate_bindmap(map, nbindmap)?;
                     }
-                }
-                _ => match v {
-                    toml::Value::String(s) => {
-                        map.insert(k, s);
-                    }
-                    _ => {
-                        return Err(ConfigError::TableGet(TableGetError {
-                            context: handle.context,
-                            error: TableGetErr::WrongType("STRING"),
-                        }))
-                    }
                 },
-            };
+                _ => { map.insert(k, extract_value!(String, v)?); },
+            }
         }
         Ok(())
     }
