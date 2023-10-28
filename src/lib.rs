@@ -1,6 +1,6 @@
 use aho_corasick::{AhoCorasick, PatternID};
 use configs::*;
-use gfunc::tomlutil::TableHandle;
+use toml_context::*;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 pub mod args;
@@ -16,25 +16,13 @@ fn do_axbind(text: &str, bindings: BTreeMap<String, String>, options: &configs::
 
     todo!();
 }
-pub fn get_array_strings<'t>(
-    table: &TableHandle<'t>,
-    key: &str,
-) -> gfunc::tomlutil::TableResult<Vec<&'t String>> {
-    use gfunc::tomlutil::*;
-    let mut o = Vec::<&String>::new();
-    for val in table.get_array(key)? {
-        match val {
-            toml::Value::String(str) => o.push(str),
-            _ => {
-                return Err(TableGetError::new(
-                    table.context.with(key.to_string()),
-                    key,
-                    TableGetErr::WrongType("ARRAY (of STRINGs}"),
-                ));
-            }
-        }
-    }
-    Ok(o)
+pub fn extract_array_strings<'t>(
+    handle: &PotentialValueHandle<'t>,
+) -> TableResult<Vec<&'t String>> {
+    extract_value!(Array, handle)?
+        .into_iter()
+        .map(|v| extract_value!(String, v))
+        .collect()
 }
 
 pub fn escaped_manip<'s, F>(text: &'s str, escape: char, manip: F) -> String
