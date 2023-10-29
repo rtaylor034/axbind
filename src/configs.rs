@@ -27,8 +27,20 @@ impl std::fmt::Display for ConfigError {
         }
     }
 }
-pub struct CoreConfig {
-    pub scheme_dir: PathBuf,
+#[derive(Debug)]
+pub struct MasterConfig<'t> {
+    pub scheme_dir: &'t String,
+    pub meta_options: MetaOptions<'t>,
+    pub options: Options<'t>,
+}
+impl MasterConfig<'_> {
+    pub fn from_table<'t>(handle: &TableHandle<'t>) -> Result<MasterConfig<'t>, ConfigError> {
+        Ok(MasterConfig {
+            scheme_dir: extract_value!(String, handle.get("scheme_dir"))?,
+            meta_options: MetaOptions::from_table_forced(&extract_value!(Table, handle.get("metaoptions"))?)?,
+            options: Options::from_table_forced(&extract_value!(Table, handle.get("options"))?)?,
+        })
+    }
 }
 #[derive(Debug)]
 pub struct BindFunction<'t> {
@@ -40,7 +52,7 @@ impl BindFunction<'_> {
         use std::process::Command;
         let command = escaped_manip(
             self.rcommand,
-            metaopts.internal_escapechar.unwrap(),
+            metaopts.internal_escape_char.unwrap(),
             |text| text.replace(metaopts.wildcard_char.unwrap(), key),
         );
         Ok(std::str::from_utf8(
@@ -76,9 +88,9 @@ impl<'st> Scheme<'st> {
         }
     }
 }
-#[derive(OptWrite)]
+#[derive(OptWrite, Debug)]
 pub struct MetaOptions<'t> {
-    pub internal_escapechar: Option<char>,
+    pub internal_escape_char: Option<char>,
     pub wildcard_char: Option<char>,
     //temporary until non-primitive data type field is added.
     _p: core::marker::PhantomData<&'t toml::Table>,
@@ -87,7 +99,7 @@ impl MetaOptions<'_> {
     //perhaps make from_table a derivable trait
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
-            internal_escapechar: extract_char_optional(table.get("internal_escapechar"))?,
+            internal_escape_char: extract_char_optional(table.get("internal_escape_char"))?,
             wildcard_char: extract_char_optional(table.get("wildcard_char"))?,
             _p: std::marker::PhantomData,
         })
@@ -95,13 +107,13 @@ impl MetaOptions<'_> {
     //cheugy solution (from_table_forced should also be derivable)
     pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
-            internal_escapechar: Some(extract_char(table.get("internal_escapechar"))?),
+            internal_escape_char: Some(extract_char(table.get("internal_escape_char"))?),
             wildcard_char: Some(extract_char(table.get("wildcard_char"))?),
             _p: std::marker::PhantomData,
         })
     }
 }
-#[derive(OptWrite)]
+#[derive(OptWrite, Debug)]
 pub struct Options<'t> {
     pub key_format: Option<&'t str>,
     pub escape_char: Option<char>,

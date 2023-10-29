@@ -16,5 +16,5 @@ files = [
 #'options' are taken directly from the main axbind config file, and are overriden here
 #'options' specified in main tagfile are applied to all groups if 'groups' is specified, but are overriden by options specified in the group files
 [options]
-keyformat='@@a@@' #'a' is placeholder for key, to use an actual 'a' use '\a'
+keyformat='@@^@@' #'a' is placeholder for key, to use an actual 'a' use '\a'
 
