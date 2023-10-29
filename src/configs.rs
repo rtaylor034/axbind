@@ -5,6 +5,8 @@ use crate::{
     PathBuf,
     RefMapping,
     extract_array_strings,
+    extract_char_optional,
+    extract_char,
 };
 use toml_context::*;
 use optwrite::OptWrite;
@@ -80,17 +82,6 @@ impl<'st> Scheme<'st> {
         }
     }
 }
-//perhaps make validate <t> a feature of tomlutil
-//also make a get_char
-fn validate_char(raw: &str, context: &Context) -> Result<char, ConfigError> {
-    if raw.len() != 1 {
-        return Err(ConfigError::Misc(format!(
-            "value for '{}' must be exactly 1 character",
-            context
-        )));
-    }
-    Ok(raw.chars().next().unwrap())
-}
 #[derive(OptWrite)]
 pub struct MetaOptions<'t> {
     pub internal_escapechar: Option<char>,
@@ -102,28 +93,16 @@ impl MetaOptions<'_> {
     //perhaps make from_table a derivable trait
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
-            internal_escapechar: match extract_value!(String, table.get("internal_escapechar")).optional()? {
-                None => None,
-                Some(v) => Some(validate_char(v, &table.context)?),
-            },
-            wildcard_char: match extract_value!(String, table.get("wildcard_char")).optional()? {
-                None => None,
-                Some(v) => Some(validate_char(v, &table.context)?),
-            },
+            internal_escapechar: extract_char_optional(table.get("internal_escapechar"))?,
+            wildcard_char: extract_char_optional(table.get("wildcard_char"))?,
             _p: std::marker::PhantomData,
         })
     }
     //cheugy solution (from_table_forced should also be derivable)
     pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
-            internal_escapechar: Some(validate_char(
-                extract_value!(String, table.get("internal_escapechar"))?,
-                &table.context.with("internal_escapechar".to_owned()),
-            )?),
-            wildcard_char: Some(validate_char(
-                extract_value!(String, table.get("wildcard_char"))?,
-                &table.context.with("wildcard_char".to_owned()),
-            )?),
+            internal_escapechar: Some(extract_char(table.get("internal_escapechar"))?),
+            wildcard_char: Some(extract_char(table.get("wildcard_char"))?),
             _p: std::marker::PhantomData,
         })
     }
@@ -135,19 +114,12 @@ pub struct Options<'t> {
 }
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
-        let o = Options {
+         Ok(Options {
             key_format: extract_value!(String, table.get("key_format"))
                 .optional()?
                 .map(|s| s.as_str()),
-            escape_char: {
-                let raw = extract_value!(String, table.get("escape_char")).optional()?;
-                match raw {
-                    None => None,
-                    Some(s) => Some(validate_char(s, &table.context)?),
-                }
-            },
-        };
-        Ok(o)
+            escape_char: extract_char_optional(table.get("escape_char"))?,
+         })
     }
 }
 #[derive(Debug)]

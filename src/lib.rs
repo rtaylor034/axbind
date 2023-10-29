@@ -24,7 +24,28 @@ pub fn extract_array_strings<'t>(
         .map(|v| extract_value!(String, v))
         .collect()
 }
-
+pub fn extract_char(handle: PotentialValueHandle) -> Result<char, ConfigError> {
+    let raw = extract_value!(String, handle.clone())?.as_str();
+    match raw.len() == 1 {
+        true => Ok(raw.chars().next().unwrap()),
+        false => Err(ConfigError::Misc(format!(
+                    "value for '{}' must be exactly 1 character",
+                    handle.context))),
+    }
+}
+pub fn extract_char_optional(handle: PotentialValueHandle) -> Result<Option<char>, ConfigError> {
+    let rawopt = extract_value!(String, handle.clone()).optional()?;
+    match rawopt {
+        None => Ok(None),
+        Some(raw) =>
+        Ok(match raw.len() == 1 {
+            true => Some(raw.chars().next().unwrap()),
+            false => return Err(ConfigError::Misc(format!(
+                        "value for '{}' must be exactly 1 character",
+                        handle.context))),
+            })
+    }
+}
 pub fn escaped_manip<'s, F>(text: &'s str, escape: char, manip: F) -> String
 where
     F: Fn(&'s str) -> String,
