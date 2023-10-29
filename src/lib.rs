@@ -1,8 +1,8 @@
 use aho_corasick::{AhoCorasick, PatternID};
 use configs::*;
-use toml_context::*;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+use toml_context::*;
 pub mod args;
 pub mod configs;
 pub mod tagfile;
@@ -16,9 +16,7 @@ fn do_axbind(text: &str, bindings: BTreeMap<String, String>, options: &configs::
 
     todo!();
 }
-pub fn extract_array_strings<'t>(
-    handle: PotentialValueHandle<'t>,
-) -> TableResult<Vec<&'t String>> {
+pub fn extract_array_strings<'t>(handle: PotentialValueHandle<'t>) -> TableResult<Vec<&'t String>> {
     extract_value!(Array, handle)?
         .into_iter()
         .map(|v| extract_value!(String, v))
@@ -29,21 +27,24 @@ pub fn extract_char(handle: PotentialValueHandle) -> Result<char, ConfigError> {
     match raw.len() == 1 {
         true => Ok(raw.chars().next().unwrap()),
         false => Err(ConfigError::Misc(format!(
-                    "value for '{}' must be exactly 1 character",
-                    handle.context))),
+            "value for '{}' must be exactly 1 character",
+            handle.context
+        ))),
     }
 }
 pub fn extract_char_optional(handle: PotentialValueHandle) -> Result<Option<char>, ConfigError> {
     let rawopt = extract_value!(String, handle.clone()).optional()?;
     match rawopt {
         None => Ok(None),
-        Some(raw) =>
-        Ok(match raw.len() == 1 {
+        Some(raw) => Ok(match raw.len() == 1 {
             true => Some(raw.chars().next().unwrap()),
-            false => return Err(ConfigError::Misc(format!(
-                        "value for '{}' must be exactly 1 character",
-                        handle.context))),
-            })
+            false => {
+                return Err(ConfigError::Misc(format!(
+                    "value for '{}' must be exactly 1 character",
+                    handle.context
+                )))
+            }
+        }),
     }
 }
 pub fn escaped_manip<'s, F>(text: &'s str, escape: char, manip: F) -> String

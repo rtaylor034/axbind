@@ -1,15 +1,9 @@
 use crate::{
-    escaped_manip,
-    Mapping,
-    Path,
-    PathBuf,
-    RefMapping,
-    extract_array_strings,
-    extract_char_optional,
-    extract_char,
+    escaped_manip, extract_array_strings, extract_char, extract_char_optional, Mapping, Path,
+    PathBuf, RefMapping,
 };
-use toml_context::*;
 use optwrite::OptWrite;
+use toml_context::*;
 #[derive(Debug)]
 pub enum ConfigError {
     TableGet(TableGetError),
@@ -114,12 +108,18 @@ pub struct Options<'t> {
 }
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
-         Ok(Options {
+        Ok(Options {
             key_format: extract_value!(String, table.get("key_format"))
                 .optional()?
                 .map(|s| s.as_str()),
             escape_char: extract_char_optional(table.get("escape_char"))?,
-         })
+        })
+    }
+    pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
+        Ok(Options {
+            key_format: Some(extract_value!(String, table.get("key_format"))?.as_str()),
+            escape_char: Some(extract_char(table.get("escape_char"))?),
+        })
     }
 }
 #[derive(Debug)]
@@ -213,7 +213,10 @@ impl<'st> SchemeRegistry<'st> {
             table: &scheme.table,
             context: scheme.root_context.clone().into(),
         };
-        self.populate_bindmap(&mut scheme.bindings, extract_value!(Table, handle.get("bindings"))?)?;
+        self.populate_bindmap(
+            &mut scheme.bindings,
+            extract_value!(Table, handle.get("bindings"))?,
+        )?;
         for (name, remaptable) in extract_value!(Table, handle.get("remaps"))? {
             let mut remap = RefMapping::<&String>::new();
             self.populate_bindmap(&mut remap, extract_value!(Table, remaptable)?)?;
@@ -223,8 +226,14 @@ impl<'st> SchemeRegistry<'st> {
             scheme.functions.insert(
                 name,
                 BindFunction {
-                    shell: extract_value!(String, extract_value!(Table, functiontable.clone())?.get("shell"))?,
-                    rcommand: extract_value!(String, extract_value!(Table, functiontable)?.get("command"))?,
+                    shell: extract_value!(
+                        String,
+                        extract_value!(Table, functiontable.clone())?.get("shell")
+                    )?,
+                    rcommand: extract_value!(
+                        String,
+                        extract_value!(Table, functiontable)?.get("command")
+                    )?,
                 },
             );
         }
@@ -259,13 +268,12 @@ impl<'st> SchemeRegistry<'st> {
                             }
                         };
                         let mut nbindmap =
-                            extract_value!(Table, scheme_table.get(k))
-                                .map_err(|e| {
-                                    ConfigError::TableRefExpect(
-                                        handle.context.with("@INCLUDE".to_owned()),
-                                        e,
-                                    )
-                                })?;
+                            extract_value!(Table, scheme_table.get(k)).map_err(|e| {
+                                ConfigError::TableRefExpect(
+                                    handle.context.with("@INCLUDE".to_owned()),
+                                    e,
+                                )
+                            })?;
                         if !path.is_empty() {
                             nbindmap = extract_value!(Table, nbindmap.get(path)).map_err(|e| {
                                 ConfigError::TableRefExpect(
@@ -276,8 +284,10 @@ impl<'st> SchemeRegistry<'st> {
                         }
                         self.populate_bindmap(map, nbindmap)?;
                     }
-                },
-                _ => { map.insert(k, extract_value!(String, v)?); },
+                }
+                _ => {
+                    map.insert(k, extract_value!(String, v)?);
+                }
             }
         }
         Ok(())

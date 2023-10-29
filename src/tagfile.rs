@@ -1,5 +1,5 @@
 use crate::configs::*;
-use crate::{ HashMap, Path, TableHandle};
+use crate::{HashMap, Path, TableHandle};
 use std::process;
 pub struct SchemeSpec<'t> {
     pub scheme: &'t String,
@@ -13,7 +13,7 @@ pub struct TagFile<'t> {
 }
 impl TagFile<'_> {
     pub fn generate_from<'t>(table: &TableHandle<'t>) -> Result<TagFile<'t>, ConfigError> {
-        use crate::{TableResultOptional, extract_array_strings, extract_value };
+        use crate::{extract_array_strings, extract_value, TableResultOptional};
         let files: Vec<&Path> = extract_array_strings(table.get("files"))?
             .into_iter()
             .map(Path::new)
