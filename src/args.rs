@@ -3,7 +3,7 @@ use gfunc::{for_until, simple_envpath};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use toml;
+use toml_context::TableRoot;
 
 #[derive(Debug)]
 pub struct ProgramOptions {
@@ -45,16 +45,13 @@ pub fn read_runinfo(runinfo: RunInfo) -> ProgramOptions {
         config_paths,
     }
 }
-pub fn priority_parse<I, T>(paths: I) -> Option<(toml::Table, PathBuf)>
+pub fn priority_parse<I, T>(paths: I) -> Option<TableRoot>
 where
     T: AsRef<Path>,
     I: IntoIterator<Item = T>,
 {
     for_until(paths, |p| {
         let path = p.as_ref();
-        fs::read_to_string(path)
-            .ok()
-            .and_then(|pathstr| pathstr.parse().ok())
-            .map(|table| (table, path.to_owned()))
+        TableRoot::from_file_path(path).ok()
     })
 }

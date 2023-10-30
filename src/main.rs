@@ -37,11 +37,11 @@ impl std::fmt::Display for MainError {
 fn program() -> Result<(), MainError> {
     let program_options = args::read_runinfo(RunInfo::get_from_env());
     eprintln!(" >> PROGRAM OPTIONS :: {:#?}", program_options);
-    let (config_table, config_path) = args::priority_parse(&program_options.config_paths)
+    let config_root = gfunc::for_until(&program_options.config_paths,
+        |p| toml_context::TableRoot::from_file_path(p).ok())
         .ok_or(MainError::NoConfigFileFound(program_options.config_paths))?;
-    eprintln!(" >> CONFIG FILE :: {:?}", config_path);
-    let master_config = configs::MasterConfig::from_table(
-        &TableHandle::new_root(&config_table, config_path.to_string_lossy().to_string()))?;
+    eprintln!(" >> CONFIG FILE :: {:?}", config_root.context);
+    let master_config = configs::MasterConfig::from_table(&config_root.handle());
     eprintln!(" >> CONFIGS :: {:#?}", master_config);
     let tagdir_paths = rsearch_dir(
         &program_options.root_dir,

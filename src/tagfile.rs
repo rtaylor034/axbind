@@ -12,7 +12,7 @@ pub struct TagFile<'t> {
     pub options: Options<'t>,
 }
 impl TagFile<'_> {
-    pub fn generate_from<'t>(table: &TableHandle<'t>) -> Result<TagFile<'t>, ConfigError> {
+    pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<TagFile<'t>, ConfigError> {
         use crate::{extract_array_strings, extract_value, TableResultOptional};
         let files: Vec<&Path> = extract_array_strings(table.get("files"))?
             .into_iter()
