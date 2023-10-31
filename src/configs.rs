@@ -146,7 +146,7 @@ pub struct SchemeRegistry<'t> {
     lookup: Mapping<*mut Scheme<'t>>,
 }
 impl<'st> SchemeRegistry<'st> {
-    pub fn load_dir<E>(dir: &Path) -> Result<SchemeRegistry, std::io::Error> {
+    pub fn load_dir(dir: &Path) -> Result<SchemeRegistry, std::io::Error> {
         use gfunc::fnav;
         use std::fs;
         use toml::Table;

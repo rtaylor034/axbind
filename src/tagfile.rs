@@ -20,19 +20,22 @@ pub struct TagGroup<'t> {
 }
 #[derive(Debug)]
 pub struct TagRoot {
-    pub affecting_path: PathBuf,
+    pub path: PathBuf,
     pub main: TableRoot,
     pub groups: Option<Vec<TableRoot>>,
 }
+#[derive(Debug)]
 pub enum GenerateErr {
     Root(RootErr),
     TableGet(TableGetError),
+    FilesAndGroupExist(PathBuf),
 }
 impl std::fmt::Display for GenerateErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Root(e) => e.fmt(f),
             Self::TableGet(e) => e.fmt(f),
+            Self::FilesAndGroupExist(path) => write!(f, "'main' tagfiles must have either a 'files' or 'groups' key, not both. ({:?})", path),
         }
     }
 }
@@ -48,10 +51,13 @@ impl TagRoot {
             Some(gvec) => Some(gvec.into_iter().map(|gpath| TableRoot::from_file_path(gpath)).collect::<Result<Vec<TableRoot>, RootErr>>().map_err(|e| GenerateErr::Root(e))?),
             None => None,
         };
+        if main.table.get("files").is_some() && groups.is_some() {
+            return Err(GenerateErr::FilesAndGroupExist(path.with_file_name("main.toml")));
+        }
         Ok(TagRoot {
             main,
             groups,
-            affecting_path: path,
+            path,
         })
     }
 }

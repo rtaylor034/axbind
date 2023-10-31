@@ -44,8 +44,10 @@ fn program() -> Result<(), MainError> {
     })
     .ok_or(MainError::NoConfigFileFound(program_options.config_paths))?;
     eprintln!(" >> CONFIG FILE :: {:?}", config_root.context);
-    let master_config = configs::MasterConfig::from_table(&config_root.handle());
+    let master_config = configs::MasterConfig::from_table(&config_root.handle())?;
     eprintln!(" >> CONFIGS :: {:#?}", master_config);
+    let scheme_registry = configs::SchemeRegistry::load_dir(Path::new(master_config.scheme_dir))
+        .map_err(|e| MainError::Generic(Box::new(e)))?;
     let tagdir_paths = rsearch_dir(
         &program_options.root_dir,
         &program_options.tagdir_path,
@@ -55,6 +57,15 @@ fn program() -> Result<(), MainError> {
     eprintln!(" >> TAGDIRS :: {:#?}", tagdir_paths);
     let tag_roots = tagdir_paths.into_iter().map(|path| tagfile::TagRoot::generate_from_dir(path)).collect::<Result<Vec<tagfile::TagRoot>, tagfile::GenerateErr>>()
         .map_err(|e| MainError::Generic(Box::new(e)))?;
+    for tag_root in tag_roots {
+        match &tag_root.groups {
+            None => {
+                let group = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
+            },
+            Some(groups) => todo!(),
+        }
+
+    }
     eprintln!(" >> OK <<");
     Ok(())
 }
