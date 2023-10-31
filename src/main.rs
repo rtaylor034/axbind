@@ -10,6 +10,7 @@ pub enum MainError {
     NoConfigFileFound(Vec<PathBuf>),
     InvalidRootDir(PathBuf, std::io::Error),
     ConfigError(configs::ConfigError),
+    Generic(Box<dyn std::fmt::Display>),
 }
 impl From<configs::ConfigError> for MainError {
     fn from(value: configs::ConfigError) -> Self {
@@ -30,6 +31,7 @@ impl std::fmt::Display for MainError {
                 writeln!(f, "Unable to read specified root dir: '{:?}'", path)?;
                 writeln!(f, "{}", ioe)
             }
+            Generic(e) => e.fmt(f),
             _ => unreachable!(),
         }
     }
@@ -51,6 +53,8 @@ fn program() -> Result<(), MainError> {
     )
     .map_err(|e| MainError::InvalidRootDir(program_options.root_dir, e))?;
     eprintln!(" >> TAGDIRS :: {:#?}", tagdir_paths);
+    let tag_roots = tagdir_paths.into_iter().map(|path| tagfile::TagRoot::generate_from_dir(path)).collect::<Result<Vec<tagfile::TagRoot>, tagfile::GenerateErr>>()
+        .map_err(|e| MainError::Generic(Box::new(e)))?;
     eprintln!(" >> OK <<");
     Ok(())
 }

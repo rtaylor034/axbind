@@ -3,6 +3,7 @@ use crate::{
     extract_array_strings, HashMap, Path, RootErr, TableGetError, TableHandle, TableResultOptional,
     extract_value,
     TableRoot,
+    PathBuf,
 };
 use std::process;
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub struct TagGroup<'t> {
 }
 #[derive(Debug)]
 pub struct TagRoot {
+    pub affecting_path: PathBuf,
     pub main: TableRoot,
     pub groups: Option<Vec<TableRoot>>,
 }
@@ -26,13 +28,18 @@ pub enum GenerateErr {
     Root(RootErr),
     TableGet(TableGetError),
 }
+impl std::fmt::Display for GenerateErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Root(e) => e.fmt(f),
+            Self::TableGet(e) => e.fmt(f),
+        }
+    }
+}
 impl TagRoot {
     //silly ass function
-    pub fn generate_from_dir<P>(path: P) -> Result<TagRoot, GenerateErr>
-    where
-        P: AsRef<Path>,
-    {
-        let main = TableRoot::from_file_path(path.as_ref().with_file_name("main.toml"))
+    pub fn generate_from_dir(path: PathBuf) -> Result<TagRoot, GenerateErr> {
+        let main = TableRoot::from_file_path(&path.with_file_name("main.toml"))
             .map_err(|e| GenerateErr::Root(e))?;
         let group_paths = extract_array_strings(main.handle().get("groups"))
             .optional()
@@ -44,6 +51,7 @@ impl TagRoot {
         Ok(TagRoot {
             main,
             groups,
+            affecting_path: path,
         })
     }
 }
