@@ -29,7 +29,7 @@ impl std::fmt::Display for MainError {
             InvalidRootDir(path, ioe) => {
                 writeln!(f, "Unable to read specified root dir: '{:?}'", path)?;
                 writeln!(f, "{}", ioe)
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -37,9 +37,10 @@ impl std::fmt::Display for MainError {
 fn program() -> Result<(), MainError> {
     let program_options = args::read_runinfo(RunInfo::get_from_env());
     eprintln!(" >> PROGRAM OPTIONS :: {:#?}", program_options);
-    let config_root = gfunc::for_until(&program_options.config_paths,
-        |p| toml_context::TableRoot::from_file_path(p).ok())
-        .ok_or(MainError::NoConfigFileFound(program_options.config_paths))?;
+    let config_root = gfunc::for_until(&program_options.config_paths, |p| {
+        toml_context::TableRoot::from_file_path(p).ok()
+    })
+    .ok_or(MainError::NoConfigFileFound(program_options.config_paths))?;
     eprintln!(" >> CONFIG FILE :: {:?}", config_root.context);
     let master_config = configs::MasterConfig::from_table(&config_root.handle());
     eprintln!(" >> CONFIGS :: {:#?}", master_config);

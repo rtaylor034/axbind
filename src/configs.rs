@@ -37,7 +37,10 @@ impl MasterConfig<'_> {
     pub fn from_table<'t>(handle: &TableHandle<'t>) -> Result<MasterConfig<'t>, ConfigError> {
         Ok(MasterConfig {
             scheme_dir: extract_value!(String, handle.get("scheme_dir"))?,
-            meta_options: MetaOptions::from_table_forced(&extract_value!(Table, handle.get("metaoptions"))?)?,
+            meta_options: MetaOptions::from_table_forced(&extract_value!(
+                Table,
+                handle.get("metaoptions")
+            )?)?,
             options: Options::from_table_forced(&extract_value!(Table, handle.get("options"))?)?,
         })
     }

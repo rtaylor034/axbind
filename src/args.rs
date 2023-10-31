@@ -45,13 +45,3 @@ pub fn read_runinfo(runinfo: RunInfo) -> ProgramOptions {
         config_paths,
     }
 }
-pub fn priority_parse<I, T>(paths: I) -> Option<TableRoot>
-where
-    T: AsRef<Path>,
-    I: IntoIterator<Item = T>,
-{
-    for_until(paths, |p| {
-        let path = p.as_ref();
-        TableRoot::from_file_path(path).ok()
-    })
-}
