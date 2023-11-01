@@ -9,3 +9,6 @@ wildcard_char='^' #representation of 'key' (i.e. char that is replaced with some
 [options]
 key_format='@^@'
 escape_char='\' #will leave next char as-is always with no parsing (consumes this char)
+#consider instead of using the 'files' key in tagfiles, just recognize files by the 'axbind_file_format" key.
+#or dont actually maybe.
+axbind_file_format='^.axbind'

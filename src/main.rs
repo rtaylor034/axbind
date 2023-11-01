@@ -1,14 +1,16 @@
 use axbind::*;
+use optwrite::OptWrite;
 use gfunc::fnav::{rsearch_dir, MetaType};
 use gfunc::run::RunInfo;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use toml_context::{extract_value, TableHandle};
+use toml_context::{extract_value, TableHandle, Context};
 //parse::<toml::Table>
 
 pub enum MainError {
     NoConfigFileFound(Vec<PathBuf>),
     InvalidRootDir(PathBuf, std::io::Error),
+    SchemeExpected(String, Context),
     ConfigError(configs::ConfigError),
     Generic(Box<dyn std::fmt::Display>),
 }
@@ -57,10 +59,20 @@ fn program() -> Result<(), MainError> {
     eprintln!(" >> TAGDIRS :: {:#?}", tagdir_paths);
     let tag_roots = tagdir_paths.into_iter().map(|path| tagfile::TagRoot::generate_from_dir(path)).collect::<Result<Vec<tagfile::TagRoot>, tagfile::GenerateErr>>()
         .map_err(|e| MainError::Generic(Box::new(e)))?;
-    for tag_root in tag_roots {
+    for tag_root in &tag_roots {
         match &tag_root.groups {
             None => {
-                let group = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
+                /*
+                let main = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
+                let options = master_config.options.clone().overriden_by(main.options);
+                let scheme = scheme_registry.get(&main.scheme_spec.scheme)?
+                    .ok_or(MainError::SchemeExpected(main.scheme_spec.scheme.clone(), tag_root.main.context.clone()))?;
+                for file in main.files {
+                    let axbind_file = escaped_manip(file.as_str(), options.escape_char.unwrap(), |s| 
+                        s.replace(master_config.meta_options.wildcard_char.unwrap(), file));
+                    }
+                */
+                evaluate_tagroot(tag_root, &master_config.options, &scheme_registry, &master_config.meta_options)?;
             },
             Some(groups) => todo!(),
         }
@@ -68,6 +80,18 @@ fn program() -> Result<(), MainError> {
     }
     eprintln!(" >> OK <<");
     Ok(())
+}
+fn evaluate_tagroot<'a>(tag_root: &tagfile::TagRoot, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
+    let tag_group = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
+    let options = opt_basis.clone().overriden_by(tag_group.options);
+    //let bindings = registry.get_bindings(&tag_group.scheme_spec)?;
+    for file in tag_group.files {
+        let axbind_file = escaped_manip(file.as_str(), options.escape_char.unwrap(), |s| 
+            s.replace(meta_opts.wildcard_char.unwrap(), file));
+        let axbind_contents = std::fs::read_to_string(&axbind_file)
+            .map_err(|e| MainError::Generic(Box::new(e)))?;
+        }
+    todo!();
 }
 fn main() {
     if let Err(e) = program() {

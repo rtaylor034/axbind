@@ -1,6 +1,6 @@
 use crate::{
     escaped_manip, extract_array_strings, extract_char, extract_char_optional, Mapping, Path,
-    PathBuf, RefMapping,
+    PathBuf, RefMapping, tagfile::SchemeSpec,
 };
 use optwrite::OptWrite;
 use toml_context::*;
@@ -116,24 +116,26 @@ impl MetaOptions<'_> {
         })
     }
 }
-#[derive(OptWrite, Debug)]
+#[derive(OptWrite, Debug, Clone)]
 pub struct Options<'t> {
-    pub key_format: Option<&'t str>,
+    pub key_format: Option<&'t String>,
     pub escape_char: Option<char>,
+    pub axbind_file_format: Option<&'t String>,
 }
 impl Options<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         Ok(Options {
             key_format: extract_value!(String, table.get("key_format"))
-                .optional()?
-                .map(|s| s.as_str()),
+                .optional()?,
             escape_char: extract_char_optional(table.get("escape_char"))?,
+            axbind_file_format: extract_value!(String, table.get("axbind_file_format")).optional()?,
         })
     }
     pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         Ok(Options {
-            key_format: Some(extract_value!(String, table.get("key_format"))?.as_str()),
+            key_format: Some(extract_value!(String, table.get("key_format"))?),
             escape_char: Some(extract_char(table.get("escape_char"))?),
+            axbind_file_format: Some(extract_value!(String, table.get("axbind_file_format"))?),
         })
     }
 }
@@ -146,6 +148,7 @@ pub struct SchemeRegistry<'t> {
     lookup: Mapping<*mut Scheme<'t>>,
 }
 impl<'st> SchemeRegistry<'st> {
+    //TODO: use TableRoot for implementation.
     pub fn load_dir(dir: &Path) -> Result<SchemeRegistry, std::io::Error> {
         use gfunc::fnav;
         use std::fs;
