@@ -7,6 +7,7 @@ use std::process::exit;
 use toml_context::{extract_value, TableHandle, Context};
 //parse::<toml::Table>
 
+///deserves to be rewritten tbh
 fn program() -> Result<(), MainError> {
     let program_options = args::read_runinfo(RunInfo::get_from_env());
     eprintln!(" >> PROGRAM OPTIONS :: {:#?}", program_options);
@@ -30,39 +31,34 @@ fn program() -> Result<(), MainError> {
         .map_err(|e| MainError::Generic(Box::new(e)))?;
     for tag_root in &tag_roots {
         match &tag_root.groups {
-            None => {
-                /*
-                let main = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
-                let options = master_config.options.clone().overriden_by(main.options);
-                let scheme = scheme_registry.get(&main.scheme_spec.scheme)?
-                    .ok_or(MainError::SchemeExpected(main.scheme_spec.scheme.clone(), tag_root.main.context.clone()))?;
-                for file in main.files {
-                    let axbind_file = escaped_manip(file.as_str(), options.escape_char.unwrap(), |s| 
-                        s.replace(master_config.meta_options.wildcard_char.unwrap(), file));
-                    }
-                */
-                evaluate_tagroot(tag_root, &master_config.options, &scheme_registry, &master_config.meta_options)?;
-            },
-            Some(groups) => todo!(),
+            None => evaluate_taggroup(&tag_root.main.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?,
+            Some(groups) => 
+                for group in groups {
+                    evaluate_taggroup(&group.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?;
+                }
         }
 
     }
     eprintln!(" >> OK <<");
     Ok(())
 }
-//cringe
-fn evaluate_tagroot<'a>(tag_root: &'a tagfile::TagRoot, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
-    let tag_group = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
+//cannot be bothered with this function signature, might as well be a macro.
+fn evaluate_taggroup<'a>(tag_group_handle: &TableHandle<'a>, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
+    let tag_group = tagfile::TagGroup::from_table(tag_group_handle)?;
     let options = opt_basis.clone().overriden_by(tag_group.options);
     //cringe
-    let bindings = get_bindings(&registry, &tag_group.scheme_spec, meta_opts, tag_root.main.context.clone())?;
+    let bindings = get_bindings(&registry, &tag_group.scheme_spec, meta_opts, tag_group_handle.context.clone())?;
     for file in tag_group.files {
         let axbind_file = escaped_manip(file.as_str(), options.escape_char.unwrap(), |s| 
             s.replace(meta_opts.wildcard_char.unwrap(), file));
         let axbind_contents = std::fs::read_to_string(&axbind_file)
             .map_err(|e| MainError::Generic(Box::new(e)))?;
+        if let Err(e) = std::fs::write(file, axbind_replace(axbind_contents.as_str(), &bindings, &options).as_str()) {
+            eprintln!("[Warn] Error writing to file '{}' (file skipped)", file);
+            eprintln!(" - {}", e);
         }
-    todo!();
+    }
+    Ok(())
 }
 fn main() {
     if let Err(e) = program() {

@@ -42,10 +42,9 @@ impl std::fmt::Display for MainError {
 pub type Mapping<T> = HashMap<String, T>;
 pub type RefMapping<'t, T> = HashMap<&'t String, T>;
 
-fn remapping<'t, S: AsRef<str>, F>(original: &RefMapping<'t, S>, remap: F) -> RefMapping<'t, String> 
-where F: Fn(&str) -> String {
-    //just fucking inline it lol!
-    HashMap::from_iter(original.iter().map(|(k, v)| (*k, remap(v.as_ref()))))
+pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: &RefMapping<S>, options: &configs::Options) -> String {
+    let searcher = AhoCorasick::new(bindings.keys()).unwrap();
+    todo!();
 }
 //this entire function may be a codesmell
 pub fn get_bindings<'t>(registry: &'t SchemeRegistry<'t>, scheme_spec: &tagfile::SchemeSpec<'t>, meta_opts: &MetaOptions, spec_context: Context) -> Result<RefMapping<'t, String>, MainError> {
@@ -78,12 +77,6 @@ pub fn get_bindings<'t>(registry: &'t SchemeRegistry<'t>, scheme_spec: &tagfile:
         }
     }
     Ok(o)
-}
-pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: RefMapping<S>, options: &configs::Options) -> String {
-    let searcher = AhoCorasick::new(bindings.keys()).unwrap();
-    for (ti, tc) in text.char_indices() {}
-
-    todo!();
 }
 pub fn extract_array_strings<'t>(handle: PotentialValueHandle<'t>) -> TableResult<Vec<&'t String>> {
     extract_value!(Array, handle)?
