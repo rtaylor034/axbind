@@ -9,4 +9,4 @@ name='keybinds'
 remaps= [ 'name' ]
 
 [options]
-keyfmt='@@^@@'
+key_format='@@^@@'

@@ -41,14 +41,16 @@ impl std::fmt::Display for GenerateErr {
 }
 impl TagRoot {
     //silly ass function
-    pub fn generate_from_dir(path: PathBuf) -> Result<TagRoot, GenerateErr> {
-        let main = TableRoot::from_file_path(&path.with_file_name("main.toml"))
+    pub fn generate_from_dir(mut path: PathBuf) -> Result<TagRoot, GenerateErr> {
+        path.push("main.toml");
+        eprintln!(" >> TAGROOT MAIN :: {:?}", path);
+        let main = TableRoot::from_file_path(&path)
             .map_err(|e| GenerateErr::Root(e))?;
         let group_paths = extract_array_strings(main.handle().get("groups"))
             .optional()
             .map_err(|e| GenerateErr::TableGet(e))?;
         let groups = match group_paths {
-            Some(gvec) => Some(gvec.into_iter().map(|gpath| TableRoot::from_file_path(gpath)).collect::<Result<Vec<TableRoot>, RootErr>>().map_err(|e| GenerateErr::Root(e))?),
+            Some(gvec) => Some(gvec.into_iter().map(|gpath| TableRoot::from_file_path(path.with_file_name(gpath))).collect::<Result<Vec<TableRoot>, RootErr>>().map_err(|e| GenerateErr::Root(e))?),
             None => None,
         };
         if main.table.get("files").is_some() && groups.is_some() {
@@ -64,7 +66,7 @@ impl TagRoot {
 impl TagGroup<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<TagGroup<'t>, ConfigError> {
         let files = extract_array_strings(table.get("files"))?;
-        let scheme_table = extract_value!(Table, table.get("schemes"))?;
+        let scheme_table = extract_value!(Table, table.get("scheme"))?;
         let options = Options::from_table(&extract_value!(Table, table.get("options"))?)?;
         let remaps = extract_array_strings(scheme_table.get("remaps"))
             .optional()?

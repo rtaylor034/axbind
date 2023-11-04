@@ -13,6 +13,7 @@ pub enum MainError {
     SchemeExpected(String, Context),
     FunctionError(Context, String, std::io::Error),
     ConfigError(configs::ConfigError),
+    ReplaceError(Box<dyn std::error::Error>),
     Generic(Box<dyn std::fmt::Display>),
 }
 impl From<configs::ConfigError> for MainError {
@@ -33,7 +34,16 @@ impl std::fmt::Display for MainError {
             InvalidRootDir(path, ioe) => {
                 writeln!(f, "Unable to read specified root dir: '{:?}'", path)?;
                 writeln!(f, "{}", ioe)
-            }
+            },
+            SchemeExpected(scheme, context) => {
+                writeln!(f, "No scheme with name '{}' exists", scheme)?;
+                writeln!(f, " > expected from '{}'", context)
+            },
+            FunctionError(context, key, error) => {
+                writeln!(f, "Error while applying bind function '{}' on key '{}'", context, key)?;
+                writeln!(f, " - {}", error)
+            },
+            ReplaceError(e) => e.fmt(f),
             Generic(e) => e.fmt(f),
             _ => unreachable!(),
         }
@@ -42,9 +52,11 @@ impl std::fmt::Display for MainError {
 pub type Mapping<T> = HashMap<String, T>;
 pub type RefMapping<'t, T> = HashMap<&'t String, T>;
 
-pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: &RefMapping<S>, options: &configs::Options) -> String {
-    let searcher = AhoCorasick::new(bindings.keys()).unwrap();
-    todo!();
+pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: &RefMapping<S>, options: &configs::Options) -> Result<String, Box<dyn std::error::Error>> {
+    let pairs: Vec<(&str, &str)> = bindings.into_iter().map(|(k, v)| ((k).as_str(), v.as_ref())).collect();
+    let searcher = AhoCorasick::new(pairs.iter().map(|(k, _)| *k))?;
+    //weirdchamp collect then slice 
+    Ok(searcher.replace_all(text, pairs.into_iter().map(|(_, v)| v).collect::<Vec<&str>>().as_slice()))
 }
 //this entire function may be a codesmell
 pub fn get_bindings<'t>(registry: &'t SchemeRegistry<'t>, scheme_spec: &tagfile::SchemeSpec<'t>, meta_opts: &MetaOptions, spec_context: Context) -> Result<RefMapping<'t, String>, MainError> {

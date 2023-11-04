@@ -5,9 +5,6 @@ groups = [
 ]
 #-- OR --
 #'groups' and 'files' are mutually exclusive
-files = [
-    "myconfig.file",
-]
 
 # -- OR --
 #files = [
@@ -16,5 +13,5 @@ files = [
 #'options' are taken directly from the main axbind config file, and are overriden here
 #'options' specified in main tagfile are applied to all groups if 'groups' is specified, but are overriden by options specified in the group files
 [options]
-keyformat='@@^@@' #'a' is placeholder for key, to use an actual 'a' use '\a'
+key_format='@@^@@' #'a' is placeholder for key, to use an actual 'a' use '\a'
 

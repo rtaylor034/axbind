@@ -6,4 +6,4 @@ name = 'everythingandmore'
 functions= [ 'myscript' ]
 
 [options]
-keyfmt='%^%'
+key_format='%^%'
