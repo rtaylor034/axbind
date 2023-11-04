@@ -7,37 +7,6 @@ use std::process::exit;
 use toml_context::{extract_value, TableHandle, Context};
 //parse::<toml::Table>
 
-pub enum MainError {
-    NoConfigFileFound(Vec<PathBuf>),
-    InvalidRootDir(PathBuf, std::io::Error),
-    SchemeExpected(String, Context),
-    ConfigError(configs::ConfigError),
-    Generic(Box<dyn std::fmt::Display>),
-}
-impl From<configs::ConfigError> for MainError {
-    fn from(value: configs::ConfigError) -> Self {
-        Self::ConfigError(value)
-    }
-}
-impl std::fmt::Display for MainError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use MainError::*;
-        match self {
-            ConfigError(e) => e.fmt(f),
-            NoConfigFileFound(paths) => {
-                writeln!(f, "No valid fonfig files found out of:")?;
-                writeln!(f, "{:#?}", paths)?;
-                writeln!(f, "(check for invalid toml syntax)")
-            }
-            InvalidRootDir(path, ioe) => {
-                writeln!(f, "Unable to read specified root dir: '{:?}'", path)?;
-                writeln!(f, "{}", ioe)
-            }
-            Generic(e) => e.fmt(f),
-            _ => unreachable!(),
-        }
-    }
-}
 fn program() -> Result<(), MainError> {
     let program_options = args::read_runinfo(RunInfo::get_from_env());
     eprintln!(" >> PROGRAM OPTIONS :: {:#?}", program_options);
@@ -81,10 +50,12 @@ fn program() -> Result<(), MainError> {
     eprintln!(" >> OK <<");
     Ok(())
 }
-fn evaluate_tagroot<'a>(tag_root: &tagfile::TagRoot, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
+//cringe
+fn evaluate_tagroot<'a>(tag_root: &'a tagfile::TagRoot, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
     let tag_group = tagfile::TagGroup::from_table(&tag_root.main.handle())?;
     let options = opt_basis.clone().overriden_by(tag_group.options);
-    //let bindings = registry.get_bindings(&tag_group.scheme_spec)?;
+    //cringe
+    let bindings = get_bindings(&registry, &tag_group.scheme_spec, meta_opts, tag_root.main.context.clone())?;
     for file in tag_group.files {
         let axbind_file = escaped_manip(file.as_str(), options.escape_char.unwrap(), |s| 
             s.replace(meta_opts.wildcard_char.unwrap(), file));

@@ -1,14 +1,17 @@
 use crate::{
     escaped_manip, extract_array_strings, extract_char, extract_char_optional, Mapping, Path,
     PathBuf, RefMapping, tagfile::SchemeSpec,
+    remapping,
 };
 use optwrite::OptWrite;
 use toml_context::*;
+//rather silly error handling for a rather silly program.
 #[derive(Debug)]
 pub enum ConfigError {
     TableGet(TableGetError),
     Misc(String),
     TableRefExpect(Context, TableGetError),
+    SchemeExpected(Context, String),
 }
 impl From<TableGetError> for ConfigError {
     fn from(value: TableGetError) -> Self {
@@ -24,6 +27,9 @@ impl std::fmt::Display for ConfigError {
                 writeln!(f, "'{}'", e).and_then(|_| writeln!(f, " > expected from '{}'", c))
             }
             Misc(msg) => writeln!(f, "{}", msg),
+            SchemeExpected(c, s) => {
+                writeln!(f, "No scheme named '{}' exists", s).and_then(|_| writeln!(f, " > expected from '{}'", c))
+            },
         }
     }
 }
@@ -75,7 +81,7 @@ pub struct Scheme<'t> {
     pub bindings: RefMapping<'t, &'t String>,
     pub remaps: RefMapping<'t, RefMapping<'t, &'t String>>,
     pub functions: RefMapping<'t, BindFunction<'t>>,
-    root_context: String,
+    pub root_context: String,
     table: toml::Table,
     verified: bool,
 }
@@ -90,6 +96,7 @@ impl<'st> Scheme<'st> {
             functions: RefMapping::new(),
         }
     }
+
 }
 #[derive(OptWrite, Debug)]
 pub struct MetaOptions<'t> {
