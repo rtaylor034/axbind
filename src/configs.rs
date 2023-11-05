@@ -1,6 +1,6 @@
 use crate::{
-    escaped_manip, extract_array_strings, extract_char, extract_char_optional, tagfile::SchemeSpec,
-    Mapping, Path, PathBuf, RefMapping,
+    escaped_manip, extract_array_strings, extract_char, extract_char_optional,
+    Mapping, Path, RefMapping,
 };
 use optwrite::OptWrite;
 use toml_context::*;

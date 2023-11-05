@@ -1,9 +1,9 @@
 use crate::configs::*;
 use crate::{
-    extract_array_strings, extract_value, HashMap, Path, PathBuf, RootErr, TableGetError,
+    extract_array_strings, extract_value, PathBuf, RootErr, TableGetError,
     TableHandle, TableResultOptional, TableRoot,
 };
-use std::process;
+
 #[derive(Debug)]
 pub struct SchemeSpec<'t> {
     pub scheme: &'t String,

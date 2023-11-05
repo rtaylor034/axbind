@@ -2,9 +2,9 @@ use axbind::*;
 use gfunc::fnav::{rsearch_dir, MetaType};
 use gfunc::run::RunInfo;
 use optwrite::OptWrite;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::process::exit;
-use toml_context::{extract_value, Context, TableHandle};
+use toml_context::{TableHandle};
 //parse::<toml::Table>
 
 ///deserves to be rewritten tbh

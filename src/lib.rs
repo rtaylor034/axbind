@@ -1,6 +1,6 @@
-use aho_corasick::{AhoCorasick, PatternID};
+use aho_corasick::{AhoCorasick};
 use configs::*;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{HashMap};
 use std::path::{Path, PathBuf};
 use toml_context::*;
 pub mod args;
