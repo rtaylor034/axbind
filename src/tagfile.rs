@@ -43,7 +43,6 @@ impl TagRoot {
     //silly ass function
     pub fn generate_from_dir(mut path: PathBuf) -> Result<TagRoot, GenerateErr> {
         path.push("main.toml");
-        eprintln!(" >> TAGROOT MAIN :: {:?}", path);
         let main = TableRoot::from_file_path(&path)
             .map_err(|e| GenerateErr::Root(e))?;
         let group_paths = extract_array_strings(main.handle().get("groups"))
@@ -67,7 +66,10 @@ impl TagGroup<'_> {
     pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<TagGroup<'t>, ConfigError> {
         let files = extract_array_strings(table.get("files"))?;
         let scheme_table = extract_value!(Table, table.get("scheme"))?;
-        let options = Options::from_table(&extract_value!(Table, table.get("options"))?)?;
+        let options = match extract_value!(Table, table.get("options")).optional()? {
+            Some(option_table) => Options::from_table(option_table)?,
+            None => Options::default(),
+        };
         let remaps = extract_array_strings(scheme_table.get("remaps"))
             .optional()?
             .unwrap_or(vec![]);

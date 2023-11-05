@@ -52,11 +52,12 @@ impl std::fmt::Display for MainError {
 pub type Mapping<T> = HashMap<String, T>;
 pub type RefMapping<'t, T> = HashMap<&'t String, T>;
 
-pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: &RefMapping<S>, options: &configs::Options) -> Result<String, Box<dyn std::error::Error>> {
-    let pairs: Vec<(&str, &str)> = bindings.into_iter().map(|(k, v)| ((k).as_str(), v.as_ref())).collect();
-    let searcher = AhoCorasick::new(pairs.iter().map(|(k, _)| *k))?;
+pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: &RefMapping<S>, options: &configs::Options, meta_opts: &MetaOptions) -> Result<String, Box<dyn std::error::Error>> {
+    let pairs: Vec<(String, &str)> = bindings.into_iter().map(|(k, v)| (escaped_manip(options.key_format.unwrap(), meta_opts.internal_escape_char.unwrap(), |s| s.replace(meta_opts.wildcard_char.unwrap(), k.as_str())), v.as_ref())).collect();
+    let searcher = AhoCorasick::new(pairs.iter().map(|(k, _)| k.as_str()))?;
     //weirdchamp collect then slice 
-    Ok(searcher.replace_all(text, pairs.into_iter().map(|(_, v)| v).collect::<Vec<&str>>().as_slice()))
+    let replacer = pairs.into_iter().map(|(_, v)| v).collect::<Vec<&str>>();
+    Ok(escaped_manip(text, options.escape_char.unwrap(), |chunk| searcher.replace_all(chunk, replacer.as_slice())))
 }
 //this entire function may be a codesmell
 pub fn get_bindings<'t>(registry: &'t SchemeRegistry<'t>, scheme_spec: &tagfile::SchemeSpec<'t>, meta_opts: &MetaOptions, spec_context: Context) -> Result<RefMapping<'t, String>, MainError> {
@@ -126,9 +127,13 @@ where
     F: Fn(&'s str) -> String,
 {
     let mut o = String::with_capacity(text.len());
-    for (esc, string) in text.split(escape).map(|chunk| chunk.split_at(1)) {
-        o.push_str(esc);
-        o.push_str(manip(string).as_str());
+    let mut current_chunk = text;
+    while let Some((mut left, right)) = current_chunk.split_once(escape) {
+        o.push_str(manip(left).as_str());
+        //'left' is reused to store the escaped character to add it back, un-manipulated
+        (left, current_chunk) = right.split_at(1);
+        o.push_str(left);
     }
+    o.push_str(manip(current_chunk).as_str());
     o
 }

@@ -9,9 +9,9 @@ close=';'
 modkey='ctrl'
 copy='c'
 
-[superbindings]
-paste='@modkey@+@copy@'
-
-[remaps.name]
-';'="semicolon"
+[remaps.wasd]
+'a'="w"
+'o'="a"
+'u'="s"
+'e'="d"
 

@@ -7,13 +7,8 @@ axbind_scheme='everythingandmore'
 ]
 and='more'
 
-[remaps.extra]
+[remaps.wasdsemi]
 '@INCLUDE'= [
-    'keybinds.name',
+    'keybinds.wasd',
 ]
-more="extra"
-#functions are commands that remap ALL values based on a binary's stdout
-#'^' represents the value pre-remap
-[functions.myscript]
-shell='sh'
-command='echo ^ | /path/to/my/binary_or_script ^'
+';'="semicolon"

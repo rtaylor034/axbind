@@ -1,10 +1,14 @@
 axbind_scheme='colors'
 
 [bindings]
-info="blue"
-app="purple"
+ok="green"
+error="red"
 
 [remaps.hex]
-'blue'="#0000FF"
-'purple'="#00FFFF"
-
+'green'="#00FF00"
+'red'="#FF0000"
+#functions are commands that remap ALL values based on a binary's stdout
+#'^' represents the value pre-remap
+[functions.wrapper]
+shell='sh'
+command='echo -n "Color(^)"'

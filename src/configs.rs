@@ -42,7 +42,7 @@ impl MasterConfig<'_> {
     pub fn from_table<'t>(handle: &TableHandle<'t>) -> Result<MasterConfig<'t>, ConfigError> {
         Ok(MasterConfig {
             scheme_dir: extract_value!(String, handle.get("scheme_dir"))?,
-            meta_options: MetaOptions::from_table_forced(&extract_value!(
+            meta_options: MetaOptions::from_table_forced(extract_value!(
                 Table,
                 handle.get("metaoptions")
             )?)?,
@@ -106,7 +106,7 @@ pub struct MetaOptions<'t> {
 }
 impl MetaOptions<'_> {
     //perhaps make from_table a derivable trait
-    pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
+    pub fn from_table<'t>(table: TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
             internal_escape_char: extract_char_optional(table.get("internal_escape_char"))?,
             wildcard_char: extract_char_optional(table.get("wildcard_char"))?,
@@ -114,7 +114,7 @@ impl MetaOptions<'_> {
         })
     }
     //cheugy solution (from_table_forced should also be derivable)
-    pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
+    pub fn from_table_forced<'t>(table: TableHandle<'t>) -> Result<MetaOptions<'t>, ConfigError> {
         Ok(MetaOptions {
             internal_escape_char: Some(extract_char(table.get("internal_escape_char"))?),
             wildcard_char: Some(extract_char(table.get("wildcard_char"))?),
@@ -122,20 +122,27 @@ impl MetaOptions<'_> {
         })
     }
 }
-#[derive(OptWrite, Debug, Clone)]
+#[derive(Default, OptWrite, Debug, Clone)]
 pub struct Options<'t> {
     pub key_format: Option<&'t String>,
     pub escape_char: Option<char>,
     pub axbind_file_format: Option<&'t String>,
 }
 impl Options<'_> {
-    pub fn from_table<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
+    pub fn from_table<'t>(table: TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         Ok(Options {
             key_format: extract_value!(String, table.get("key_format"))
                 .optional()?,
             escape_char: extract_char_optional(table.get("escape_char"))?,
             axbind_file_format: extract_value!(String, table.get("axbind_file_format")).optional()?,
         })
+    }
+    //silly function
+    pub fn from_optional_table<'t>(opt_table: Option<TableHandle<'t>>) -> Result<Options<'t>, ConfigError> {
+        match opt_table {
+            Some(table) => Self::from_table(table),
+            None => Ok(Options::default())
+        }
     }
     pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         Ok(Options {
@@ -160,7 +167,7 @@ impl<'st> SchemeRegistry<'st> {
         use std::fs;
         use toml::Table;
         let files = fnav::rsearch_dir_pred(dir, |p| {
-            p.extension().map(|os| os.to_str()) == Some(Some(".toml"))
+            p.extension().map(|os| os.to_str()) == Some(Some("toml"))
         })?;
         let mut schemes = Vec::<Scheme>::with_capacity(files.len());
         let mut lookup = Mapping::<*mut Scheme>::with_capacity(files.len());
@@ -238,33 +245,40 @@ impl<'st> SchemeRegistry<'st> {
             context: scheme.root_context.clone().into(),
         };
         self.populate_bindmap(
+            "bindings",
             &mut scheme.bindings,
             extract_value!(Table, handle.get("bindings"))?,
         )?;
-        for (name, remaptable) in extract_value!(Table, handle.get("remaps"))? {
-            let mut remap = RefMapping::<&String>::new();
-            self.populate_bindmap(&mut remap, extract_value!(Table, remaptable)?)?;
-            scheme.remaps.insert(name, remap);
+        if let Some(remaps) = extract_value!(Table, handle.get("remaps")).optional()? {
+            for (name, remaptable) in remaps {
+                let mut remap = RefMapping::<&String>::new();
+                self.populate_bindmap("remaps",&mut remap, extract_value!(Table, remaptable)?)?;
+                scheme.remaps.insert(name, remap);
+            }
         }
-        for (name, functiontable) in extract_value!(Table, handle.get("functions"))? {
-            scheme.functions.insert(
-                name,
-                BindFunction {
-                    shell: extract_value!(
-                        String,
-                        extract_value!(Table, functiontable.clone())?.get("shell")
-                    )?,
-                    rcommand: extract_value!(
-                        String,
-                        extract_value!(Table, functiontable)?.get("command")
-                    )?,
-                },
-            );
+        if let Some(functions) = extract_value!(Table, handle.get("functions")).optional()? {
+            for (name, functiontable) in functions {
+                scheme.functions.insert(
+                    name,
+                    BindFunction {
+                        shell: extract_value!(
+                            String,
+                            extract_value!(Table, functiontable.clone())?.get("shell")
+                        )?,
+                        rcommand: extract_value!(
+                            String,
+                            extract_value!(Table, functiontable)?.get("command")
+                        )?,
+                    },
+                );
+            }
         }
         Ok(())
     }
+    //shared_key is smelly :)
     fn populate_bindmap<'s>(
         &'s self,
+        shared_key: &str,
         map: &mut RefMapping<'st, &'st String>,
         handle: TableHandle<'st>,
     ) -> Result<(), ConfigError>
@@ -292,7 +306,7 @@ impl<'st> SchemeRegistry<'st> {
                             }
                         };
                         let mut nbindmap =
-                            extract_value!(Table, scheme_table.get(k)).map_err(|e| {
+                            extract_value!(Table, scheme_table.get(shared_key)).map_err(|e| {
                                 ConfigError::TableRefExpect(
                                     handle.context.with("@INCLUDE".to_owned()),
                                     e,
@@ -306,7 +320,7 @@ impl<'st> SchemeRegistry<'st> {
                                 )
                             })?;
                         }
-                        self.populate_bindmap(map, nbindmap)?;
+                        self.populate_bindmap(shared_key, map, nbindmap)?;
                     }
                 }
                 _ => {

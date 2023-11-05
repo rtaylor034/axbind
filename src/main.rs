@@ -36,10 +36,10 @@ fn program() -> Result<(), MainError> {
         .map_err(|e| MainError::Generic(Box::new(e)))?;
     for tag_root in &tag_roots {
         match &tag_root.groups {
-            None => evaluate_taggroup(&tag_root.main.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?,
+            None => evaluate_taggroup(&tag_root, &tag_root.main.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?,
             Some(groups) => 
                 for group in groups {
-                    evaluate_taggroup(&group.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?;
+                    evaluate_taggroup(&tag_root, &group.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?;
                 }
         }
 
@@ -48,7 +48,9 @@ fn program() -> Result<(), MainError> {
     Ok(())
 }
 //cannot be bothered with this function signature, might as well be a macro.
-fn evaluate_taggroup<'a>(tag_group_handle: &TableHandle<'a>, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
+fn evaluate_taggroup<'a>(tag_root: &tagfile::TagRoot, tag_group_handle: &TableHandle<'a>, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
+    let mut affecting_dir = tag_root.path.clone();
+    affecting_dir.pop();
     eprintln!(">> -- EVALUATING TAGGROUP :: {}", tag_group_handle.context);
     let tag_group = tagfile::TagGroup::from_table(tag_group_handle)?;
     let options = opt_basis.clone().overriden_by(tag_group.options);
@@ -57,14 +59,24 @@ fn evaluate_taggroup<'a>(tag_group_handle: &TableHandle<'a>, opt_basis: &configs
     let bindings = get_bindings(&registry, &tag_group.scheme_spec, meta_opts, tag_group_handle.context.clone())?;
     eprintln!(">> BINDINGS :: {:#?}", bindings);
     for file in tag_group.files {
-        eprintln!(">> AFFECTING FILE :: {}", file);
-        let axbind_file = escaped_manip(file.as_str(), options.escape_char.unwrap(), |s| 
-            s.replace(meta_opts.wildcard_char.unwrap(), file));
-            eprintln!(">> AXBIND FILE :: {}", axbind_file);
-        let axbind_contents = std::fs::read_to_string(&axbind_file)
-            .map_err(|e| MainError::Generic(Box::new(e)))?;
-            eprintln!(">> CONTENTS :: {}", axbind_contents);
-        if let Err(e) = std::fs::write(file, axbind_replace(axbind_contents.as_str(), &bindings, &options).map_err(|e| MainError::ReplaceError(e))?.as_str()) {
+        let axbind_file = escaped_manip(options.axbind_file_format.unwrap().as_str(), options.escape_char.unwrap(), |s| {
+            eprintln!("(Escaped Manip) - '{}' -> '{}'", s, meta_opts.wildcard_char.unwrap());
+            s.replace(meta_opts.wildcard_char.unwrap(), file)
+        });
+        let axbind_file_path = affecting_dir.with_file_name(&axbind_file);
+        let file_path = affecting_dir.with_file_name(file);
+        eprintln!(">> AFFECTING FILE :: {:?}", file_path);
+        eprintln!(">> AXBIND FILE :: {:?}", axbind_file_path);
+        let axbind_contents = match std::fs::read_to_string(&axbind_file_path) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[Warn] Error reading file {:?} (file skipped)", axbind_file_path);
+                eprintln!(" - {}", e);
+                continue;
+            }
+        };
+        eprintln!(">> CONTENTS :: {}", axbind_contents);
+        if let Err(e) = std::fs::write(file_path, axbind_replace(axbind_contents.as_str(), &bindings, &options, &meta_opts).map_err(|e| MainError::ReplaceError(e))?.as_str()) {
             eprintln!("[Warn] Error writing to file '{}' (file skipped)", file);
             eprintln!(" - {}", e);
         }

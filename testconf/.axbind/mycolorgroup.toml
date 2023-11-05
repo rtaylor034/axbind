@@ -1,9 +1,0 @@
-
-files = [ "mycolors.file" ]
-
-[scheme]
-name = 'everythingandmore'
-functions= [ 'myscript' ]
-
-[options]
-key_format='%^%'

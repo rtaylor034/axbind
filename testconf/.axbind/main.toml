@@ -1,7 +1,9 @@
 #any field/option specified in the MAIN tagfile (this) will apply to ALL groupfiles unless overriden
 groups = [
-    "mybindinggroup.toml",
-    "mycolorgroup.toml",
+    "bindingGROUP.toml",
+    "colorGROUP.toml",
+    "everythingGROUP.toml",
+    "scripttestGROUP.toml"
 ]
 #-- OR --
 #'groups' and 'files' are mutually exclusive
