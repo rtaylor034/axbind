@@ -82,7 +82,7 @@ pub fn axbind_replace<S: AsRef<str>>(
         searcher.replace_all(chunk, replacer.as_slice())
     }))
 }
-//this entire function may be a codesmell
+//this entire function may be a codesmell (it definitely is)
 pub fn get_bindings<'t>(
     registry: &'t SchemeRegistry<'t>,
     scheme_spec: &tagfile::SchemeSpec<'t>,

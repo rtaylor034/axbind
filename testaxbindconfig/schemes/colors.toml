@@ -11,4 +11,4 @@ error="red"
 #'^' represents the value pre-remap
 [functions.wrapper]
 shell='sh'
-command='echo -n "Color(^)"'
+command='echo -n "\| ^ \^ ^ |"'
