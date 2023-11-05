@@ -1,6 +1,6 @@
 use crate::{
-    escaped_manip, extract_array_strings, extract_char, extract_char_optional, Mapping, Path,
-    PathBuf, RefMapping, tagfile::SchemeSpec,
+    escaped_manip, extract_array_strings, extract_char, extract_char_optional, tagfile::SchemeSpec,
+    Mapping, Path, PathBuf, RefMapping,
 };
 use optwrite::OptWrite;
 use toml_context::*;
@@ -26,9 +26,8 @@ impl std::fmt::Display for ConfigError {
                 writeln!(f, "'{}'", e).and_then(|_| writeln!(f, " > expected from '{}'", c))
             }
             Misc(msg) => writeln!(f, "{}", msg),
-            SchemeExpected(c, s) => {
-                writeln!(f, "No scheme named '{}' exists", s).and_then(|_| writeln!(f, " > expected from '{}'", c))
-            },
+            SchemeExpected(c, s) => writeln!(f, "No scheme named '{}' exists", s)
+                .and_then(|_| writeln!(f, " > expected from '{}'", c)),
         }
     }
 }
@@ -95,7 +94,6 @@ impl<'st> Scheme<'st> {
             functions: RefMapping::new(),
         }
     }
-
 }
 #[derive(OptWrite, Debug)]
 pub struct MetaOptions<'t> {
@@ -131,17 +129,19 @@ pub struct Options<'t> {
 impl Options<'_> {
     pub fn from_table<'t>(table: TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
         Ok(Options {
-            key_format: extract_value!(String, table.get("key_format"))
-                .optional()?,
+            key_format: extract_value!(String, table.get("key_format")).optional()?,
             escape_char: extract_char_optional(table.get("escape_char"))?,
-            axbind_file_format: extract_value!(String, table.get("axbind_file_format")).optional()?,
+            axbind_file_format: extract_value!(String, table.get("axbind_file_format"))
+                .optional()?,
         })
     }
     //silly function
-    pub fn from_optional_table<'t>(opt_table: Option<TableHandle<'t>>) -> Result<Options<'t>, ConfigError> {
+    pub fn from_optional_table<'t>(
+        opt_table: Option<TableHandle<'t>>,
+    ) -> Result<Options<'t>, ConfigError> {
         match opt_table {
             Some(table) => Self::from_table(table),
-            None => Ok(Options::default())
+            None => Ok(Options::default()),
         }
     }
     pub fn from_table_forced<'t>(table: &TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
@@ -252,7 +252,7 @@ impl<'st> SchemeRegistry<'st> {
         if let Some(remaps) = extract_value!(Table, handle.get("remaps")).optional()? {
             for (name, remaptable) in remaps {
                 let mut remap = RefMapping::<&String>::new();
-                self.populate_bindmap("remaps",&mut remap, extract_value!(Table, remaptable)?)?;
+                self.populate_bindmap("remaps", &mut remap, extract_value!(Table, remaptable)?)?;
                 scheme.remaps.insert(name, remap);
             }
         }
@@ -305,8 +305,8 @@ impl<'st> SchemeRegistry<'st> {
                                 )))
                             }
                         };
-                        let mut nbindmap =
-                            extract_value!(Table, scheme_table.get(shared_key)).map_err(|e| {
+                        let mut nbindmap = extract_value!(Table, scheme_table.get(shared_key))
+                            .map_err(|e| {
                                 ConfigError::TableRefExpect(
                                     handle.context.with("@INCLUDE".to_owned()),
                                     e,

@@ -34,15 +34,19 @@ impl std::fmt::Display for MainError {
             InvalidRootDir(path, ioe) => {
                 writeln!(f, "Unable to read specified root dir: '{:?}'", path)?;
                 writeln!(f, "{}", ioe)
-            },
+            }
             SchemeExpected(scheme, context) => {
                 writeln!(f, "No scheme with name '{}' exists", scheme)?;
                 writeln!(f, " > expected from '{}'", context)
-            },
+            }
             FunctionError(context, key, error) => {
-                writeln!(f, "Error while applying bind function '{}' on key '{}'", context, key)?;
+                writeln!(
+                    f,
+                    "Error while applying bind function '{}' on key '{}'",
+                    context, key
+                )?;
                 writeln!(f, " - {}", error)
-            },
+            }
             ReplaceError(e) => e.fmt(f),
             Generic(e) => e.fmt(f),
             _ => unreachable!(),
@@ -52,41 +56,89 @@ impl std::fmt::Display for MainError {
 pub type Mapping<T> = HashMap<String, T>;
 pub type RefMapping<'t, T> = HashMap<&'t String, T>;
 
-pub fn axbind_replace<S: AsRef<str>>(text: &str, bindings: &RefMapping<S>, options: &configs::Options, meta_opts: &MetaOptions) -> Result<String, Box<dyn std::error::Error>> {
-    let pairs: Vec<(String, &str)> = bindings.into_iter().map(|(k, v)| (escaped_manip(options.key_format.unwrap(), meta_opts.internal_escape_char.unwrap(), |s| s.replace(meta_opts.wildcard_char.unwrap(), k.as_str())), v.as_ref())).collect();
+pub fn axbind_replace<S: AsRef<str>>(
+    text: &str,
+    bindings: &RefMapping<S>,
+    options: &configs::Options,
+    meta_opts: &MetaOptions,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let pairs: Vec<(String, &str)> = bindings
+        .into_iter()
+        .map(|(k, v)| {
+            (
+                escaped_manip(
+                    options.key_format.unwrap(),
+                    meta_opts.internal_escape_char.unwrap(),
+                    |s| s.replace(meta_opts.wildcard_char.unwrap(), k.as_str()),
+                ),
+                v.as_ref(),
+            )
+        })
+        .collect();
     let searcher = AhoCorasick::new(pairs.iter().map(|(k, _)| k.as_str()))?;
-    //weirdchamp collect then slice 
+    //weirdchamp collect then slice
     let replacer = pairs.into_iter().map(|(_, v)| v).collect::<Vec<&str>>();
-    Ok(escaped_manip(text, options.escape_char.unwrap(), |chunk| searcher.replace_all(chunk, replacer.as_slice())))
+    Ok(escaped_manip(text, options.escape_char.unwrap(), |chunk| {
+        searcher.replace_all(chunk, replacer.as_slice())
+    }))
 }
 //this entire function may be a codesmell
-pub fn get_bindings<'t>(registry: &'t SchemeRegistry<'t>, scheme_spec: &tagfile::SchemeSpec<'t>, meta_opts: &MetaOptions, spec_context: Context) -> Result<RefMapping<'t, String>, MainError> {
-    let scheme = registry.get(scheme_spec.scheme)?.ok_or(ConfigError::SchemeExpected(spec_context.with("scheme".to_owned()), scheme_spec.scheme.to_owned()))?;
+pub fn get_bindings<'t>(
+    registry: &'t SchemeRegistry<'t>,
+    scheme_spec: &tagfile::SchemeSpec<'t>,
+    meta_opts: &MetaOptions,
+    spec_context: Context,
+) -> Result<RefMapping<'t, String>, MainError> {
+    let scheme = registry
+        .get(scheme_spec.scheme)?
+        .ok_or(ConfigError::SchemeExpected(
+            spec_context.with("scheme".to_owned()),
+            scheme_spec.scheme.to_owned(),
+        ))?;
     macro_rules! gen_error {
-        ($category:expr, $key:expr) => { ConfigError::TableRefExpect(spec_context.with($category.to_owned()).with(($key).to_owned()),
-        TableGetError {
-            error: TableGetErr::NoKey,
-            context: Context::from(scheme.root_context.clone()).with($category.to_owned()).with(($key).to_owned()),
-                })
-            }
-        }
+        ($category:expr, $key:expr) => {
+            ConfigError::TableRefExpect(
+                spec_context
+                    .with($category.to_owned())
+                    .with(($key).to_owned()),
+                TableGetError {
+                    error: TableGetErr::NoKey,
+                    context: Context::from(scheme.root_context.clone())
+                        .with($category.to_owned())
+                        .with(($key).to_owned()),
+                },
+            )
+        };
+    }
     let mut inter_o = scheme.bindings.clone();
     for remap_name in &scheme_spec.remaps {
-        let s_remaps = scheme.remaps.get(remap_name).ok_or(gen_error!("remaps", *remap_name))?;
+        let s_remaps = scheme
+            .remaps
+            .get(remap_name)
+            .ok_or(gen_error!("remaps", *remap_name))?;
         for val in inter_o.values_mut() {
             if let Some(remap) = s_remaps.get(val) {
                 *val = *remap;
             }
         }
     }
-    let mut o = RefMapping::<String>::from_iter(inter_o.into_iter().map(|(k, v)| (k, v.to_owned())));
+    let mut o =
+        RefMapping::<String>::from_iter(inter_o.into_iter().map(|(k, v)| (k, v.to_owned())));
     for function_name in &scheme_spec.functions {
-        let s_function = scheme.functions.get(function_name).ok_or(gen_error!("functions", *function_name))?;
+        let s_function = scheme
+            .functions
+            .get(function_name)
+            .ok_or(gen_error!("functions", *function_name))?;
         for val in o.values_mut() {
-            *val = s_function.apply(val.as_str(), meta_opts).map_err(|e| MainError::FunctionError(
-                    spec_context.with("functions".to_owned()).with((*function_name).to_owned()),
+            *val = s_function.apply(val.as_str(), meta_opts).map_err(|e| {
+                MainError::FunctionError(
+                    spec_context
+                        .with("functions".to_owned())
+                        .with((*function_name).to_owned()),
                     val.to_owned(),
-                    e))?;
+                    e,
+                )
+            })?;
         }
     }
     Ok(o)

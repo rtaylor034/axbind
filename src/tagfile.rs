@@ -1,9 +1,7 @@
 use crate::configs::*;
 use crate::{
-    extract_array_strings, HashMap, Path, RootErr, TableGetError, TableHandle, TableResultOptional,
-    extract_value,
-    TableRoot,
-    PathBuf,
+    extract_array_strings, extract_value, HashMap, Path, PathBuf, RootErr, TableGetError,
+    TableHandle, TableResultOptional, TableRoot,
 };
 use std::process;
 #[derive(Debug)]
@@ -35,7 +33,11 @@ impl std::fmt::Display for GenerateErr {
         match self {
             Self::Root(e) => e.fmt(f),
             Self::TableGet(e) => e.fmt(f),
-            Self::FilesAndGroupExist(path) => write!(f, "'main' tagfiles must have either a 'files' or 'groups' key, not both. ({:?})", path),
+            Self::FilesAndGroupExist(path) => write!(
+                f,
+                "'main' tagfiles must have either a 'files' or 'groups' key, not both. ({:?})",
+                path
+            ),
         }
     }
 }
@@ -43,23 +45,25 @@ impl TagRoot {
     //silly ass function
     pub fn generate_from_dir(mut path: PathBuf) -> Result<TagRoot, GenerateErr> {
         path.push("main.toml");
-        let main = TableRoot::from_file_path(&path)
-            .map_err(|e| GenerateErr::Root(e))?;
+        let main = TableRoot::from_file_path(&path).map_err(|e| GenerateErr::Root(e))?;
         let group_paths = extract_array_strings(main.handle().get("groups"))
             .optional()
             .map_err(|e| GenerateErr::TableGet(e))?;
         let groups = match group_paths {
-            Some(gvec) => Some(gvec.into_iter().map(|gpath| TableRoot::from_file_path(path.with_file_name(gpath))).collect::<Result<Vec<TableRoot>, RootErr>>().map_err(|e| GenerateErr::Root(e))?),
+            Some(gvec) => Some(
+                gvec.into_iter()
+                    .map(|gpath| TableRoot::from_file_path(path.with_file_name(gpath)))
+                    .collect::<Result<Vec<TableRoot>, RootErr>>()
+                    .map_err(|e| GenerateErr::Root(e))?,
+            ),
             None => None,
         };
         if main.table.get("files").is_some() && groups.is_some() {
-            return Err(GenerateErr::FilesAndGroupExist(path.with_file_name("main.toml")));
+            return Err(GenerateErr::FilesAndGroupExist(
+                path.with_file_name("main.toml"),
+            ));
         }
-        Ok(TagRoot {
-            main,
-            groups,
-            path,
-        })
+        Ok(TagRoot { main, groups, path })
     }
 }
 impl TagGroup<'_> {

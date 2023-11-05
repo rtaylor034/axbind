@@ -1,10 +1,10 @@
 use axbind::*;
-use optwrite::OptWrite;
 use gfunc::fnav::{rsearch_dir, MetaType};
 use gfunc::run::RunInfo;
+use optwrite::OptWrite;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use toml_context::{extract_value, TableHandle, Context};
+use toml_context::{extract_value, Context, TableHandle};
 //parse::<toml::Table>
 
 ///deserves to be rewritten tbh
@@ -20,7 +20,8 @@ fn program() -> Result<(), MainError> {
     eprintln!(" >> CONFIGS :: {:#?}", master_config);
     //TODO: fix scheme_dir not being relative to configuration directory.
     //perhaps add a gfunc function for easy relative/absolute parsing
-    let scheme_path = PathBuf::from(String::clone(&config_root.context.branch)).with_file_name(master_config.scheme_dir);
+    let scheme_path = PathBuf::from(String::clone(&config_root.context.branch))
+        .with_file_name(master_config.scheme_dir);
     eprintln!(" >> FULL SCHEME DIR :: {:?}", scheme_path);
     let scheme_registry = configs::SchemeRegistry::load_dir(scheme_path.as_path())
         .map_err(|e| MainError::Generic(Box::new(e)))?;
@@ -32,23 +33,44 @@ fn program() -> Result<(), MainError> {
     .map_err(|e| MainError::InvalidRootDir(program_options.root_dir, e))?;
     eprintln!(" >> SCHEME REGISTRY :: {:#?}", scheme_registry);
     eprintln!(" >> TAGDIRS :: {:#?}", tagdir_paths);
-    let tag_roots = tagdir_paths.into_iter().map(|path| tagfile::TagRoot::generate_from_dir(path)).collect::<Result<Vec<tagfile::TagRoot>, tagfile::GenerateErr>>()
+    let tag_roots = tagdir_paths
+        .into_iter()
+        .map(|path| tagfile::TagRoot::generate_from_dir(path))
+        .collect::<Result<Vec<tagfile::TagRoot>, tagfile::GenerateErr>>()
         .map_err(|e| MainError::Generic(Box::new(e)))?;
     for tag_root in &tag_roots {
         match &tag_root.groups {
-            None => evaluate_taggroup(&tag_root, &tag_root.main.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?,
-            Some(groups) => 
+            None => evaluate_taggroup(
+                &tag_root,
+                &tag_root.main.handle(),
+                &master_config.options,
+                &scheme_registry,
+                &master_config.meta_options,
+            )?,
+            Some(groups) => {
                 for group in groups {
-                    evaluate_taggroup(&tag_root, &group.handle(), &master_config.options, &scheme_registry, &master_config.meta_options)?;
+                    evaluate_taggroup(
+                        &tag_root,
+                        &group.handle(),
+                        &master_config.options,
+                        &scheme_registry,
+                        &master_config.meta_options,
+                    )?;
                 }
+            }
         }
-
     }
     eprintln!(" >> OK <<");
     Ok(())
 }
 //cannot be bothered with this function signature, might as well be a macro.
-fn evaluate_taggroup<'a>(tag_root: &tagfile::TagRoot, tag_group_handle: &TableHandle<'a>, opt_basis: &configs::Options, registry: &'a configs::SchemeRegistry<'a>, meta_opts: &configs::MetaOptions) -> Result<(), MainError> {
+fn evaluate_taggroup<'a>(
+    tag_root: &tagfile::TagRoot,
+    tag_group_handle: &TableHandle<'a>,
+    opt_basis: &configs::Options,
+    registry: &'a configs::SchemeRegistry<'a>,
+    meta_opts: &configs::MetaOptions,
+) -> Result<(), MainError> {
     let mut affecting_dir = tag_root.path.clone();
     affecting_dir.pop();
     eprintln!(">> -- EVALUATING TAGGROUP :: {}", tag_group_handle.context);
@@ -56,13 +78,26 @@ fn evaluate_taggroup<'a>(tag_root: &tagfile::TagRoot, tag_group_handle: &TableHa
     let options = opt_basis.clone().overriden_by(tag_group.options);
     eprintln!(">> OPTIONS :: {:#?}", options);
     //cringe
-    let bindings = get_bindings(&registry, &tag_group.scheme_spec, meta_opts, tag_group_handle.context.clone())?;
+    let bindings = get_bindings(
+        &registry,
+        &tag_group.scheme_spec,
+        meta_opts,
+        tag_group_handle.context.clone(),
+    )?;
     eprintln!(">> BINDINGS :: {:#?}", bindings);
     for file in tag_group.files {
-        let axbind_file = escaped_manip(options.axbind_file_format.unwrap().as_str(), options.escape_char.unwrap(), |s| {
-            eprintln!("(Escaped Manip) - '{}' -> '{}'", s, meta_opts.wildcard_char.unwrap());
-            s.replace(meta_opts.wildcard_char.unwrap(), file)
-        });
+        let axbind_file = escaped_manip(
+            options.axbind_file_format.unwrap().as_str(),
+            options.escape_char.unwrap(),
+            |s| {
+                eprintln!(
+                    "(Escaped Manip) - '{}' -> '{}'",
+                    s,
+                    meta_opts.wildcard_char.unwrap()
+                );
+                s.replace(meta_opts.wildcard_char.unwrap(), file)
+            },
+        );
         let axbind_file_path = affecting_dir.with_file_name(&axbind_file);
         let file_path = affecting_dir.with_file_name(file);
         eprintln!(">> AFFECTING FILE :: {:?}", file_path);
@@ -70,13 +105,21 @@ fn evaluate_taggroup<'a>(tag_root: &tagfile::TagRoot, tag_group_handle: &TableHa
         let axbind_contents = match std::fs::read_to_string(&axbind_file_path) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("[Warn] Error reading file {:?} (file skipped)", axbind_file_path);
+                eprintln!(
+                    "[Warn] Error reading file {:?} (file skipped)",
+                    axbind_file_path
+                );
                 eprintln!(" - {}", e);
                 continue;
             }
         };
         eprintln!(">> CONTENTS :: {}", axbind_contents);
-        if let Err(e) = std::fs::write(file_path, axbind_replace(axbind_contents.as_str(), &bindings, &options, &meta_opts).map_err(|e| MainError::ReplaceError(e))?.as_str()) {
+        if let Err(e) = std::fs::write(
+            file_path,
+            axbind_replace(axbind_contents.as_str(), &bindings, &options, &meta_opts)
+                .map_err(|e| MainError::ReplaceError(e))?
+                .as_str(),
+        ) {
             eprintln!("[Warn] Error writing to file '{}' (file skipped)", file);
             eprintln!(" - {}", e);
         }
