@@ -1,2 +1,2 @@
 # !bin/sh
-cargo run -- $PWD/testconf/ --tagdir=.axbind --config=$PWD/testaxbindconfig/config.toml
+cargo run -- $PWD/myconfigs/ --tagdir=.axbind --config=$PWD/axbindconfig/config.toml
