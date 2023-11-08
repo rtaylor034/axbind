@@ -85,7 +85,7 @@ pub fn axbind_replace<S: AsRef<str>>(
 //this entire function may be a codesmell (it definitely is)
 pub fn get_bindings<'t>(
     registry: &'t SchemeRegistry<'t>,
-    scheme_spec: &tagfile::SchemeSpec<'t>,
+    scheme_spec: &tagfile::SchemeSpec,
     meta_opts: &MetaOptions,
     spec_context: Context,
 ) -> Result<RefMapping<'t, String>, MainError> {

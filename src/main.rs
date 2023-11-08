@@ -33,29 +33,43 @@ fn program() -> Result<(), MainError> {
     .map_err(|e| MainError::InvalidRootDir(program_options.root_dir, e))?;
     eprintln!(" >> SCHEME REGISTRY :: {:#?}", scheme_registry);
     eprintln!(" >> TAGDIRS :: {:#?}", tagdir_paths);
-    let tag_roots = tagdir_paths
-        .into_iter()
-        .map(|path| tagfile::TagRoot::generate_from_dir(path))
-        .collect::<Result<Vec<tagfile::TagRoot>, tagfile::GenerateErr>>()
-        .map_err(|e| MainError::Generic(Box::new(e)))?;
-    for tag_root in &tag_roots {
+    //this is some bullshit
+    macro_rules! warn_continue {
+        ($result:expr, $msg:expr) => {
+            {
+                match $result {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("[Warn] {}", $msg);
+                        eprintln!(" - {}", e);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+    for tag_path in tagdir_paths {
+        let tag_root = warn_continue!(tagfile::TagRoot::generate_from_dir(&tag_path),
+            format!("Unable to interpret tag directory {:?}", tag_path));
         match &tag_root.groups {
-            None => evaluate_taggroup(
+            None => warn_continue!(evaluate_taggroup(
                 &tag_root,
                 &tag_root.main.handle(),
                 &master_config.options,
                 &scheme_registry,
                 &master_config.meta_options,
-            )?,
+            ),
+            format!("Unable to apply group '{}'", tag_root.main.context)),
             Some(groups) => {
                 for group in groups {
-                    evaluate_taggroup(
+                    warn_continue!(evaluate_taggroup(
                         &tag_root,
                         &group.handle(),
                         &master_config.options,
                         &scheme_registry,
                         &master_config.meta_options,
-                    )?;
+                    ),
+                    format!("Unable to apply group '{}'", group.context));
                 }
             }
         }
@@ -66,7 +80,7 @@ fn program() -> Result<(), MainError> {
 //cannot be bothered with this function signature, might as well be a macro.
 fn evaluate_taggroup<'a>(
     tag_root: &tagfile::TagRoot,
-    tag_group_handle: &TableHandle<'a>,
+    tag_group_handle: &TableHandle,
     opt_basis: &configs::Options,
     registry: &'a configs::SchemeRegistry<'a>,
     meta_opts: &configs::MetaOptions,

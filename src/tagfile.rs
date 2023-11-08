@@ -43,7 +43,9 @@ impl std::fmt::Display for GenerateErr {
 }
 impl TagRoot {
     //silly ass function
-    pub fn generate_from_dir(mut path: PathBuf) -> Result<TagRoot, GenerateErr> {
+    pub fn generate_from_dir<P>(dir_path: P) -> Result<TagRoot, GenerateErr>
+    where P: AsRef<std::path::Path> {
+        let mut path = dir_path.as_ref().to_path_buf();
         path.push("main.toml");
         let main = TableRoot::from_file_path(&path).map_err(|e| GenerateErr::Root(e))?;
         let group_paths = extract_array_strings(main.handle().get("groups"))
