@@ -7,21 +7,6 @@ use std::process::exit;
 use toml_context::{TableHandle};
 //parse::<toml::Table>
 
-//this is some bullshit
-macro_rules! warn_continue {
-    ($result:expr, $msg:expr) => {
-        {
-            match $result {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("[Warn] {}", $msg);
-                    eprintln!(" - {}", e);
-                    continue;
-                }
-            }
-        }
-    }
-}
 ///deserves to be rewritten tbh
 fn program() -> Result<(), MainError> {
     let program_options = args::read_runinfo(RunInfo::get_from_env());
@@ -48,6 +33,21 @@ fn program() -> Result<(), MainError> {
     .map_err(|e| MainError::InvalidRootDir(program_options.root_dir, e))?;
     eprintln!(" >> SCHEME REGISTRY :: {:#?}", scheme_registry);
     eprintln!(" >> TAGDIRS :: {:#?}", tagdir_paths);
+    //this is some bullshit
+    macro_rules! warn_continue {
+        ($result:expr, $msg:expr) => {
+            {
+                match $result {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("[Warn] {}", $msg);
+                        eprintln!(" - {}", e);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
     for tag_path in tagdir_paths {
         let tag_root = warn_continue!(tagfile::TagRoot::generate_from_dir(&tag_path),
             format!("Unable to interpret tag directory {:?}", tag_path));
@@ -109,24 +109,26 @@ fn evaluate_taggroup<'a>(
         let file_path = affecting_dir.with_file_name(file);
         eprintln!(">> AFFECTING FILE :: {:?}", file_path);
         eprintln!(">> AXBIND FILE :: {:?}", axbind_file_path);
-        let axbind_contents = warn_continue!(std::fs::read_to_string(&axbind_file_path),
-                format!(
+        let axbind_contents = match std::fs::read_to_string(&axbind_file_path) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!(
                     "[Warn] Error reading file {:?} (file skipped)",
                     axbind_file_path
-                ));
+                );
+                eprintln!(" - {}", e);
+                continue;
+            }
+        };
         //eprintln!(">> CONTENTS :: {}", axbind_contents);
-        use std::io::prelude::Write;
-        let mut write_file = warn_continue!(std::fs::File::create(&file_path),
-            format!("Unable to write to file {:?} (file, skipped)", file_path));
-        warn_continue!(write_file.write_all(
+        if let Err(e) = std::fs::write(
+            file_path,
             axbind_replace(axbind_contents.as_str(), &bindings, &options, &meta_opts)
                 .map_err(|e| MainError::ReplaceError(e))?
-                .as_bytes(),
-        ), 
-        format!("Unable to write to file {:?} (file skipped)", file_path));
-        if options.sync_immediately.unwrap() {
-            warn_continue!(write_file.sync_data(),
-            format!("Unable to immediately sync file {:?} (contents still written)", file_path));
+                .as_str(),
+        ) {
+            eprintln!("[Warn] Error writing to file '{}' (file skipped)", file);
+            eprintln!(" - {}", e);
         }
     }
     Ok(())
