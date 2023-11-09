@@ -103,14 +103,7 @@ fn evaluate_taggroup<'a>(
         let axbind_file = escaped_manip(
             options.axbind_file_format.unwrap().as_str(),
             options.escape_char.unwrap(),
-            |s| {
-                eprintln!(
-                    "(Escaped Manip) - '{}' -> '{}'",
-                    s,
-                    meta_opts.wildcard_char.unwrap()
-                );
-                s.replace(meta_opts.wildcard_char.unwrap(), file)
-            },
+            |s| s.replace(meta_opts.wildcard_char.unwrap(), file)
         );
         let axbind_file_path = affecting_dir.with_file_name(&axbind_file);
         let file_path = affecting_dir.with_file_name(file);
@@ -127,7 +120,7 @@ fn evaluate_taggroup<'a>(
                 continue;
             }
         };
-        eprintln!(">> CONTENTS :: {}", axbind_contents);
+        //eprintln!(">> CONTENTS :: {}", axbind_contents);
         if let Err(e) = std::fs::write(
             file_path,
             axbind_replace(axbind_contents.as_str(), &bindings, &options, &meta_opts)
