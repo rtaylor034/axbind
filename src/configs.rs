@@ -125,7 +125,6 @@ pub struct Options<'t> {
     pub key_format: Option<&'t String>,
     pub escape_char: Option<char>,
     pub axbind_file_format: Option<&'t String>,
-    pub sync_immediately: Option<bool>
 }
 impl Options<'_> {
     pub fn from_table<'t>(table: TableHandle<'t>) -> Result<Options<'t>, ConfigError> {
@@ -134,7 +133,6 @@ impl Options<'_> {
             escape_char: extract_char_optional(table.get("escape_char"))?,
             axbind_file_format: extract_value!(String, table.get("axbind_file_format"))
                 .optional()?,
-            sync_immediately: extract_value!(Boolean, table.get("sync_immediately")).optional()?.copied(),
         })
     }
     //silly function
@@ -151,7 +149,6 @@ impl Options<'_> {
             key_format: Some(extract_value!(String, table.get("key_format"))?),
             escape_char: Some(extract_char(table.get("escape_char"))?),
             axbind_file_format: Some(extract_value!(String, table.get("axbind_file_format"))?),
-            sync_immediately: Some(extract_value!(Boolean, table.get("sync_immediately"))?).copied(),
         })
     }
 }
